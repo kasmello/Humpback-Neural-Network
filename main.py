@@ -8,6 +8,8 @@ import os
 import tkinter as tk
 from tkinter import filedialog
 from NNclasses import nn_label
+import torch
+from torchvision import datasets, transforms
 
 
 
@@ -18,10 +20,15 @@ if __name__ == '__main__':
 
     if option == '1':
         print('Please select the folder with the trained sounds')
-
+        file_path = ''
         ## This code here opens a file selection dialog
-        root = tk.Tk()
-        file_path = filedialog.askdirectory()
+        # try:
+        #     root = tk.Tk()
+        #     file_path = filedialog.askdirectory()
+        # except FileNotFoundError:
+        print('Tkinter is extremely crinj')
+        file_path = '/Volumes/Macintosh HD/Users/karmel/Desktop/Results/All/'
+
         ##
 
         all_labels_str = [folder for folder in os.listdir(file_path) if \
@@ -34,5 +41,5 @@ if __name__ == '__main__':
 
         for item in all_training_labels:
             print(item.label)
-
-        
+            print(item.path)
+            print(item.wavs)
