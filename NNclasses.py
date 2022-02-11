@@ -7,6 +7,7 @@ import torch
 import torchvision
 from torchvision import datasets, transforms
 import helper
+from PIL import Image, ImageDraw
 
 class nn_label:
 
@@ -23,8 +24,9 @@ class nn_label:
         all_wavs = []
         for wav in all_files:
             if wav[-4:]=='.png':
-                tsr_img = torchvision.io.read_image(wav)
-                all_wavs.append(tsr_img)
+                file_name = os.path.join(self.path,wav)
+                im = Image.open(file_name)
+                all_wavs.append(im)
 
 
 
