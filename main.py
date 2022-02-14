@@ -22,19 +22,20 @@ if __name__ == '__main__':
     if option == '1':
         print('Please select the folder with the trained sounds')
         file_path = ''
-        ## This code here opens a file selection dialog
-        # try:
-        #     root = tk.Tk()
-        #     file_path = filedialog.askdirectory()
-        # except FileNotFoundError:
-        print('Tkinter is extremely crinj')
-        file_path = '/Volumes/Macintosh HD/Users/karmel/Desktop/Results/All/'
+        # This code here opens a file selection dialog
+        try:
+            root = tk.Tk()
+            file_path = filedialog.askdirectory()
+        except FileNotFoundError:
+            print('Tkinter is extremely crinj')
+            file_path = '/Volumes/Macintosh HD/Users/karmel/Desktop/Results/All/'
 
         ##
 
         all_labels_str = [folder for folder in os.listdir(file_path) if \
         os.path.isdir(os.path.join(file_path,folder))] #list comprehension to add folders only
-
+        all_labels_dict = dict(enumerate(all_labels_str))
+        breakpoint()
         all_training_labels = []
         for label in all_labels_str:
             label_class = nn_label(file_path,label)
