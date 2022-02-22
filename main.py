@@ -10,6 +10,8 @@ from tkinter import filedialog
 from NNclasses import nn_label
 import torch
 from torchvision import datasets, transforms
+from PIL import Image
+import numpy as np
 
 
 
@@ -17,7 +19,8 @@ from torchvision import datasets, transforms
 
 if __name__ == '__main__':
     option = input('Hello. What would you like to do?\
-                \n1: Select folders (Folder names as labels)\n')
+                \n1: Select folders (Folder names as labels)\
+                \n2: Test Vision Transformer model\n')
 
     if option == '1':
         print('Please select the folder with the trained sounds')
@@ -45,3 +48,40 @@ if __name__ == '__main__':
             print(item.label)
             print(item.path)
             print(item.wavs)
+
+    elif option == '2':
+        k = 10
+        imagenet_labels = dict(enumerate(open('classes.txt')))
+
+        model = torch.load('model.pth')
+        model.eval()
+
+        cat = (np.array(Image.open('cat.png'))/128)-1
+        inp = torch.from_numpy(cat).permute(2,0,1).unsqueeze(0).to(torch.float32)
+        logits = model(inp)
+        probs = torch.nn.functional.softmax(logits,dim=-1)
+
+        top_probs, top_ics = probs[0].topk(k)
+        # turn logits into probabilities
+
+        print('\nPREDICTING IMAGE 1\n')
+        for i, (ix_, prob_) in enumerate(zip(top_ics, top_probs)):
+            ix = ix_.item()
+            prob = prob_.item()
+            cls = imagenet_labels[ix].strip()
+            print(f"{i}: {cls:<45} --- {prob:.4f}")
+
+        comp = (np.array(Image.open('computer.png'))/128)-1
+        inp = torch.from_numpy(comp).permute(2,0,1).unsqueeze(0).to(torch.float32)
+        logits = model(inp)
+        probs = torch.nn.functional.softmax(logits,dim=-1)
+
+        top_probs, top_ics = probs[0].topk(k)
+        # turn logits into probabilities
+
+        print('\nPREDICTING IMAGE 2\n')
+        for i, (ix_, prob_) in enumerate(zip(top_ics, top_probs)):
+            ix = ix_.item()
+            prob = prob_.item()
+            cls = imagenet_labels[ix].strip()
+            print(f"{i}: {cls:<45} --- {prob:.4f}")
