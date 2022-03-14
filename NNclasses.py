@@ -5,11 +5,20 @@ this is where I will write all my classes :)
 import os
 import torch
 import torchvision
+from math import ceil
 from torchvision import transforms
 from torchvision import datasets, transforms
 from PIL import Image, ImageDraw
 import glob
 import torch.nn as nn
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib import transforms
+from scipy import signal
+from scipy import ndimage
+from scipy.io import wavfile
+from pydub import AudioSegment
+
 
 class nn_label:
 
@@ -17,23 +26,67 @@ class nn_label:
     def __init__(self, path,folder):
         self.label = folder
         self.path = os.path.join(path,folder) + '/'
-        self.wavs = self.grab_all_spectograms()
+        self.pngs = []
+        self.wavs = []
+
+
+    def pad_all_spectograms(self,pad_ms=2200):
+        for item in self.wavs:
+            audio = AudioSegment.from_wav(item)
+            if len(audio) != 2200:
+                print(f'original length: {len(audio)}')
+                silence1 = AudioSegment.silent(duration=int((pad_ms-len(audio))/2))
+                silence2 = AudioSegment.silent(duration=ceil((pad_ms-len(audio))/2))
+                new_length = len(audio)+len(silence1)+len(silence2)
+                print(f'new length: {new_length}')
+                padded = silence1 + audio + silence2  # Adding silence after the audio
+                padded.export(item, format='wav')
+
+
 
 
     def grab_all_spectograms(self):
+        all_files = [file for root, dir, file in os.walk(self.path)]
+        all_files = all_files[0]
+        all_pngs = []
+        for file in all_files:
+            if file[-4:]=='.png':
+                file_name = os.path.join(self.path,file)
+                im = Image.open(file_name)
+                im_tensor = transforms.ToTensor()(im).unsqueeze_(0)
+                all_pngs.append(im_tensor)
+
+
+        self.pngs = all_pngs
+        return all_pngs
+
+    def grab_all_wavs(self):
         all_files = [wav for root, dir, wav in os.walk(self.path)]
         all_files = all_files[0]
         all_wavs = []
         for wav in all_files:
-            if wav[-4:]=='.png':
+            if wav[-4:]=='.wav':
                 file_name = os.path.join(self.path,wav)
-                im = Image.open(file_name)
-                im_tensor = transforms.ToTensor()(im).unsqueeze_(0)
-                all_wavs.append(im_tensor)
+                all_wavs.append(file_name)
 
 
-
+        self.wavs = all_wavs
         return all_wavs
+
+    def convert_wavs_to_spectogram(self):
+        self.grab_all_wavs()
+        self.pad_all_spectograms()
+        for item in self.wavs:
+            fs, x = wavfile.read(item)
+            Pxx, freqs, bins, im = plt.specgram(x, Fs=fs,NFFT=512)
+            # plt.pcolormesh(bins, freqs, 10*np.log10(Pxx))
+            plt.imshow(10*np.log10(Pxx), cmap='gray_r')
+            plt.axis('off')
+            plt.show()
+            plt.savefig(f'{item[:-4]}.png',bbox_inches=0)
+            print('saved!')
+
+
 
 class PatchEmbed(nn.Module):
     """ Split image into patches (like a jigsaw puzzle)
