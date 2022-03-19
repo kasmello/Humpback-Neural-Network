@@ -93,3 +93,9 @@ if __name__ == '__main__':
             all_training_labels.append(label_class)
             print('bit by bit...')
         print('Done!')
+    elif option == '4':
+        #theoryyy
+        len_of_database = 10000
+        size_of_chunks = 2 # in seconds
+        for t in range(len_of_database-size_of_chunks+1):
+            print(f'START: {t} END: {t+size_of_chunks}')
