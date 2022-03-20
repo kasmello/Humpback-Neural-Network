@@ -8,11 +8,12 @@ import os
 import tkinter as tk
 import tkmacosx as tkm
 from tkinter import filedialog
-from NNclasses import nn_label
+from NNclasses import nn_label, wav_to_spectogram
 import torch
 from torchvision import datasets, transforms
 from PIL import Image
 import numpy as np
+from pydub import AudioSegment
 
 
 
@@ -89,13 +90,21 @@ if __name__ == '__main__':
         all_training_labels = []
         for label in all_labels_str:
             label_class = nn_label(file_path,label)
-            label_class.convert_wavs_to_spectogram()
+            label_class.save_spectogram()
             all_training_labels.append(label_class)
             print('bit by bit...')
         print('Done!')
     elif option == '4':
         #theoryyy
+        example_file_path = '/Volumes/Macintosh HD/Users/karmel/Desktop/Results/braindead.wav'
+        example_track = AudioSegment.from_wav(example_file_path)
         len_of_database = 10000
         size_of_chunks = 2 # in seconds
         for t in range(len_of_database-size_of_chunks+1):
-            print(f'START: {t} END: {t+size_of_chunks}')
+            start = t * 1000
+            end = (t+size_of_chunks)*1000
+            print(f'START: {start} END: {end}')
+            segment = example_track[start:end]
+            segment.export('/Volumes/Macintosh HD/Users/karmel/Desktop/Results/_temp.wav', format='wav')
+            wav_to_spectogram('/Volumes/Macintosh HD/Users/karmel/Desktop/Results/_temp.wav',save=False)
+            os.remove('/Volumes/Macintosh HD/Users/karmel/Desktop/Results/_temp.wav')

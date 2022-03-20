@@ -19,6 +19,17 @@ from scipy import ndimage
 from scipy.io import wavfile
 from pydub import AudioSegment
 
+def wav_to_spectogram(item, save = True):
+    fs, x = wavfile.read(item)
+    Pxx, freqs, bins, im = plt.specgram(x, Fs=fs,NFFT=512)
+    # plt.pcolormesh(bins, freqs, 10*np.log10(Pxx))
+    plt.imshow(10*np.log10(Pxx), cmap='gray_r')
+    plt.axis('off')
+    plt.show()
+    if save:
+        plt.savefig(f'{item[:-4]}.png',bbox_inches=0)
+        print('saved!')
+
 
 class nn_label:
 
@@ -73,18 +84,15 @@ class nn_label:
         self.wavs = all_wavs
         return all_wavs
 
-    def convert_wavs_to_spectogram(self):
+    def save_spectogram(self):
         self.grab_all_wavs()
         self.pad_all_spectograms()
         for item in self.wavs:
-            fs, x = wavfile.read(item)
-            Pxx, freqs, bins, im = plt.specgram(x, Fs=fs,NFFT=512)
-            # plt.pcolormesh(bins, freqs, 10*np.log10(Pxx))
-            plt.imshow(10*np.log10(Pxx), cmap='gray_r')
-            plt.axis('off')
-            plt.show()
-            plt.savefig(f'{item[:-4]}.png',bbox_inches=0)
-            print('saved!')
+            wav_to_spectogram(item)
+
+
+
+
 
 
 
