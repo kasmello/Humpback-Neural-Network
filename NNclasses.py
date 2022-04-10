@@ -7,13 +7,12 @@ import torch
 import torchvision
 from math import ceil
 from torchvision import transforms
-from torchvision import datasets, transforms
+from torchvision import datasets
 from PIL import Image, ImageDraw
 import glob
 import torch.nn as nn
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib import transforms
 from scipy import signal
 from scipy import ndimage
 from scipy.io import wavfile
@@ -65,6 +64,8 @@ class nn_label:
                 file_name = os.path.join(self.path,file)
                 im = Image.open(file_name)
                 im_tensor = transforms.ToTensor()(im).unsqueeze_(0)
+                plt.imshow(transforms.ToPILImage()(transforms.ToTensor()(im)), interpolation="bicubic")
+                # plt.show()
                 all_pngs.append(im_tensor)
 
 
