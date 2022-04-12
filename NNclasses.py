@@ -5,14 +5,16 @@ this is where I will write all my classes :)
 import os
 import torch
 import torchvision
+import glob
+import pandas as pd
+import torch.nn as nn
+import numpy as np
+import matplotlib.pyplot as plt
+from pathlib import Path
 from math import ceil
 from torchvision import transforms
 from torchvision import datasets
 from PIL import Image, ImageDraw
-import glob
-import torch.nn as nn
-import numpy as np
-import matplotlib.pyplot as plt
 from scipy import signal
 from scipy import ndimage
 from scipy.io import wavfile
@@ -20,7 +22,7 @@ from pydub import AudioSegment
 
 def wav_to_spectogram(item, save = True):
     fs, x = wavfile.read(item)
-    Pxx, freqs, bins, im = plt.specgram(x, Fs=fs,NFFT=512)
+    Pxx, freqs, bins, im = plt.specgram(x, Fs=fs,NFFT=1024)
     # plt.pcolormesh(bins, freqs, 10*np.log10(Pxx))
     plt.imshow(10*np.log10(Pxx), cmap='gray_r')
     plt.axis('off')
@@ -37,6 +39,7 @@ class nn_label:
         self.label = folder
         self.path = os.path.join(path,folder) + '/'
         self.pngs = []
+        self.csvs = []
         self.wavs = []
 
 
@@ -62,11 +65,13 @@ class nn_label:
         for file in all_files:
             if file[-4:]=='.png':
                 file_name = os.path.join(self.path,file)
-                im = Image.open(file_name)
-                im_tensor = transforms.ToTensor()(im).unsqueeze_(0)
-                plt.imshow(transforms.ToPILImage()(transforms.ToTensor()(im)), interpolation="bicubic")
-                # plt.show()
-                all_pngs.append(im_tensor)
+                if Path(file_name).stat().st_size > 1000:
+                    im = Image.open(file_name)
+                    im_tensor = transforms.ToTensor()(im).unsqueeze_(0)
+                    plt.imshow(transforms.ToPILImage()(transforms.ToTensor()(im)), interpolation="bicubic")
+                    # plt.show()
+
+                    all_pngs.append(im_tensor)
 
 
         self.pngs = all_pngs
@@ -84,6 +89,19 @@ class nn_label:
 
         self.wavs = all_wavs
         return all_wavs
+
+    def grab_all_csvs(self):
+        all_files = [wav for root, dir, wav in os.walk(self.path)]
+        all_files = all_files[0]
+        all_wavs = []
+        for wav in all_files:
+            if wav[-4:]=='.csv':
+                file_name = os.path.join(self.path,wav)
+                csv_file = pd.read_csv(file_name)
+                csv_file = csv_file.to_numpy().astype(np.float32)
+                csv_file = torch.from_numpy(csv_file)
+                all_wavs.append(csv_file)
+
 
     def save_spectogram(self):
         self.grab_all_wavs()

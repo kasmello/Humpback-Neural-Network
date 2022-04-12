@@ -5,14 +5,17 @@ detect Humpback whales
 
 
 import os
+import torch
+import progressbar
+import numpy as np
 import tkinter as tk
 import tkmacosx as tkm
+from sklearn import preprocessing
+from sklearn import preprocessing
 from tkinter import filedialog
 from NNclasses import nn_label, wav_to_spectogram
-import torch
 from torchvision import datasets, transforms
 from PIL import Image
-import numpy as np
 from pydub import AudioSegment
 
 
@@ -22,13 +25,17 @@ from pydub import AudioSegment
 if __name__ == '__main__':
     finished = False
     all_training_labels = []
+    all_validation_labels = []
     while not finished:
         option = input('Hello. What would you like to do?\
                     \n1: Select folders (Folder names as labels)\
                     \n2: Test Vision Transformer model\
                     \n3: Generate spectograms\
                     \n4: Go through the Entire Dataset (BETA)\
-                    \n5: Train Vision Transformer')
+                    \n5: Train Vision Transformer\
+                    \n6: Train ResNet18 NN\
+                    \n\t6b: Train ResNet18 NN (using csv matrix)\n')
+
 
         if option == '1':
             print('Please select the folder with the trained sounds')
@@ -39,23 +46,37 @@ if __name__ == '__main__':
             #     file_path = filedialog.askdirectory()
             # except FileNotFoundError:
             #     print('Tkinter is extremely crinj')
-            file_path = '/Volumes/Macintosh HD/Users/karmel/Desktop/Training/Humpback/'
+            training_file_path = '/Volumes/Macintosh HD/Users/karmel/Desktop/Training/Humpback/Training'
+            validation_file_path = '/Volumes/Macintosh HD/Users/karmel/Desktop/Training/Humpback/Validation'
 
             ##
 
-            all_labels_str = [folder for folder in os.listdir(file_path) if \
-            os.path.isdir(os.path.join(file_path,folder))] #list comprehension to add folders only
+            all_labels_str = [folder for folder in os.listdir(training_file_path) if \
+            os.path.isdir(os.path.join(training_file_path,folder))] #list comprehension to add folders only
+            all_val_labels_str = [folder for folder in os.listdir(validation_file_path) if \
+            os.path.isdir(os.path.join(validation_file_path,folder))] #list comprehension to add folders only
+            bar = progressbar.ProgressBar(maxval=len(all_labels_str)+len(all_val_labels_str), \
+                widgets=[progressbar.Bar('=', '[', ']'), ' ', progressbar.Percentage()])
+            bar.start()
+            i = 0
 
-            all_training_labels = []
             for label in all_labels_str:
-                label_class = nn_label(file_path,label)
+                label_class = nn_label(training_file_path,label)
                 label_class.grab_all_spectograms()
+                label_class.grab_all_csvs()
                 all_training_labels.append(label_class)
+                bar.update(i + 1)
+                i += 1
 
-            for item in all_training_labels:
-                print(item.label)
-                print(item.path)
-                print(item.pngs)
+            for label in all_val_labels_str:
+                label_class = nn_label(validation_file_path,label)
+                label_class.grab_all_spectograms()
+                label_class.grab_all_csvs()
+                all_validation_labels.append(label_class)
+                bar.update(i + 1)
+                i += 1
+            bar.finish()
+
 
         elif option == '2':
             k = 10
@@ -122,4 +143,38 @@ if __name__ == '__main__':
                     label = item.label
                     for png in item.pngs:
                         input = png
-                        
+
+
+        elif option[0] == '6':
+            #training resnet model
+            train = []
+            train_labels = []
+            labels = []
+            labels_dict = {}
+
+            if len(option) == 2:
+                for item in all_training_labels:
+                    labels.append(item.labels[:-1])
+                    train.extend(item.csvs)
+
+                    for i in range(len(item.csvs)):
+                        train_labels.append(item.labels[:-1])
+
+            else:
+                for item in all_training_labels:
+                    labels.append(item.label[:-1])
+                    train.extend(item.pngs)
+
+                    for i in range(len(item.pngs)):
+                        train_labels.append(item.label[:-1])
+            train = torch.stack(train)
+
+            le = preprocessing.LabelEncoder()
+            le_labels = le.fit_transform(labels)
+            for i in range(len(labels)):
+                labels_dict[labels[i]] = le_labels[i]
+            for i in range(len(train_labels)):
+                train_labels[i] = labels_dict[train_labels[i]]
+            train_labels = transforms.tensor(train_labels)
+            train_data_and_labels = [train,train_labels]
+            print(train_data_and_labels)
