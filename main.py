@@ -7,6 +7,8 @@ detect Humpback whales
 import os
 import torch
 import progressbar
+import pickle
+import matplotlib.pyplot as plt
 import numpy as np
 import tkinter as tk
 import tkmacosx as tkm
@@ -14,7 +16,6 @@ from sklearn import preprocessing
 from sklearn import preprocessing
 from tkinter import filedialog
 from NNclasses import nn_label, wav_to_spectogram
-from torchvision import datasets, transforms
 from PIL import Image
 from pydub import AudioSegment
 
@@ -29,6 +30,7 @@ if __name__ == '__main__':
     while not finished:
         option = input('Hello. What would you like to do?\
                     \n1: Select folders (Folder names as labels)\
+                    \n\t1b: Load pickled labels\
                     \n2: Test Vision Transformer model\
                     \n3: Generate spectograms\
                     \n4: Go through the Entire Dataset (BETA)\
@@ -55,7 +57,7 @@ if __name__ == '__main__':
             os.path.isdir(os.path.join(training_file_path,folder))] #list comprehension to add folders only
             all_val_labels_str = [folder for folder in os.listdir(validation_file_path) if \
             os.path.isdir(os.path.join(validation_file_path,folder))] #list comprehension to add folders only
-            bar = progressbar.ProgressBar(maxval=len(all_labels_str)+len(all_val_labels_str), \
+            bar = progressbar.ProgressBar(maxval=len(all_labels_str)+len(all_val_labels_str)+2, \
                 widgets=[progressbar.Bar('=', '[', ']'), ' ', progressbar.Percentage()])
             bar.start()
             i = 0
@@ -75,8 +77,20 @@ if __name__ == '__main__':
                 all_validation_labels.append(label_class)
                 bar.update(i + 1)
                 i += 1
+            with open('all_training_labels.ml','wb') as file:
+                pickle.dump(all_training_labels,file)
+            bar.update(i+1)
+            i += 1
+            with open('all_validation_labels.ml','wb') as file:
+                pickle.dump(all_validation_labels,file)
+            bar.update(i+1)
             bar.finish()
 
+        elif option == '1b':
+            with open('all_training_labels.ml','rb') as file:
+                all_training_labels = pickle.load(file)
+            with open('all_validation_labels.ml','rb') as file:
+                all_validation_labels = pickle.load(file)
 
         elif option == '2':
             k = 10
@@ -154,11 +168,11 @@ if __name__ == '__main__':
 
             if len(option) == 2:
                 for item in all_training_labels:
-                    labels.append(item.labels[:-1])
+                    labels.append(item.label[:-1])
                     train.extend(item.csvs)
 
                     for i in range(len(item.csvs)):
-                        train_labels.append(item.labels[:-1])
+                        train_labels.append(item.label[:-1])
 
             else:
                 for item in all_training_labels:
@@ -167,7 +181,8 @@ if __name__ == '__main__':
 
                     for i in range(len(item.pngs)):
                         train_labels.append(item.label[:-1])
-            train = torch.stack(train)
+            train = np.array(train)
+            train = torch.Tensor(train)
 
             le = preprocessing.LabelEncoder()
             le_labels = le.fit_transform(labels)
@@ -175,6 +190,6 @@ if __name__ == '__main__':
                 labels_dict[labels[i]] = le_labels[i]
             for i in range(len(train_labels)):
                 train_labels[i] = labels_dict[train_labels[i]]
-            train_labels = transforms.tensor(train_labels)
+            train_labels = torch.Tensor(train_labels)
             train_data_and_labels = [train,train_labels]
             print(train_data_and_labels)

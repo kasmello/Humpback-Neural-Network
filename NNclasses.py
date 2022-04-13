@@ -91,16 +91,21 @@ class nn_label:
         return all_wavs
 
     def grab_all_csvs(self):
-        all_files = [wav for root, dir, wav in os.walk(self.path)]
+        all_files = [csv for root, dir, csv in os.walk(self.path)]
         all_files = all_files[0]
-        all_wavs = []
-        for wav in all_files:
-            if wav[-4:]=='.csv':
-                file_name = os.path.join(self.path,wav)
-                csv_file = pd.read_csv(file_name)
-                csv_file = csv_file.to_numpy().astype(np.float32)
-                csv_file = torch.from_numpy(csv_file)
-                all_wavs.append(csv_file)
+        all_csvs = []
+        for csv in all_files:
+            if csv[-4:]=='.csv':
+                file_name = os.path.join(self.path,csv)
+                if Path(f'{file_name[:-3]}png').stat().st_size > 1000:
+                    csv_file = pd.read_csv(file_name, header=None)
+                    csv_file = csv_file.to_numpy().astype(np.float32)
+
+                    # csv_file = torch.unsqueeze(csv_file, dim = 1)
+                    all_csvs.append(csv_file)
+        self.csvs = all_csvs
+
+        return self.csvs
 
 
     def save_spectogram(self):
