@@ -8,6 +8,7 @@ import torchvision
 import glob
 import pandas as pd
 import torch.nn as nn
+import torch.nn.functional as F
 import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
@@ -31,9 +32,7 @@ def wav_to_spectogram(item, save = True):
         plt.savefig(f'{item[:-4]}.png',bbox_inches=0)
         print('saved!')
 
-
 class nn_label:
-
 
     def __init__(self, path,folder):
         self.label = folder
@@ -41,7 +40,6 @@ class nn_label:
         self.pngs = []
         self.csvs = []
         self.wavs = []
-
 
     def pad_all_spectograms(self,pad_ms=2200):
         for item in self.wavs:
@@ -55,9 +53,6 @@ class nn_label:
                 padded = silence1 + audio + silence2  # Adding silence after the audio
                 padded.export(item, format='wav')
 
-
-
-
     def grab_all_spectograms(self):
         all_files = [file for root, dir, file in os.walk(self.path)]
         all_files = all_files[0]
@@ -70,9 +65,7 @@ class nn_label:
                     im_tensor = transforms.ToTensor()(im).unsqueeze_(0)
                     plt.imshow(transforms.ToPILImage()(transforms.ToTensor()(im)), interpolation="bicubic")
                     # plt.show()
-
                     all_pngs.append(im_tensor)
-
 
         self.pngs = all_pngs
         return all_pngs
@@ -81,11 +74,11 @@ class nn_label:
         all_files = [wav for root, dir, wav in os.walk(self.path)]
         all_files = all_files[0]
         all_wavs = []
+
         for wav in all_files:
             if wav[-4:]=='.wav':
                 file_name = os.path.join(self.path,wav)
                 all_wavs.append(file_name)
-
 
         self.wavs = all_wavs
         return all_wavs
@@ -94,19 +87,18 @@ class nn_label:
         all_files = [csv for root, dir, csv in os.walk(self.path)]
         all_files = all_files[0]
         all_csvs = []
+
         for csv in all_files:
             if csv[-4:]=='.csv':
                 file_name = os.path.join(self.path,csv)
                 if Path(f'{file_name[:-3]}png').stat().st_size > 1000:
                     csv_file = pd.read_csv(file_name, header=None)
                     csv_file = csv_file.to_numpy().astype(np.float32)
-
                     # csv_file = torch.unsqueeze(csv_file, dim = 1)
                     all_csvs.append(csv_file)
+
         self.csvs = all_csvs
-
         return self.csvs
-
 
     def save_spectogram(self):
         self.grab_all_wavs()
@@ -114,11 +106,20 @@ class nn_label:
         for item in self.wavs:
             wav_to_spectogram(item)
 
+class Net(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.fc1 = nn.Linear(220*220,1024)
+        self.fc2 = nn.Linear(1024,1024)
+        self.fc3 = nn.Linear(1024,1024)
+        self.fc4 = nn.Linear(1024,64)
 
-
-
-
-
+    def forward(self,x):
+        x = F.relu(self.fc1(x)) #F.relu is an activation function
+        x = F.relu(self.fc2(x))
+        x = F.relu(self.fc3(x))
+        x = self.fc4(x)
+        return F.log_softmax(x,dim=1)#probability distribution
 
 class PatchEmbed(nn.Module):
     """ Split image into patches (like a jigsaw puzzle)
