@@ -112,7 +112,7 @@ class Net(nn.Module):
         self.fc1 = nn.Linear(220*220,1024)
         self.fc2 = nn.Linear(1024,1024)
         self.fc3 = nn.Linear(1024,1024)
-        self.fc4 = nn.Linear(1024,64)
+        self.fc4 = nn.Linear(1024,24)
 
     def forward(self,x):
         x = F.relu(self.fc1(x)) #F.relu is an activation function

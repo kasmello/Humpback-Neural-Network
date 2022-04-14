@@ -213,8 +213,6 @@ if __name__ == '__main__':
                     optimizer.step()
                 print(loss)
 
-            results = np.zeros(len(labels)**2)
-            results = results.reshape(len(labels),len(labels))
             pred = []
             actual = []
 
