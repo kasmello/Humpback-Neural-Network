@@ -6,6 +6,8 @@ import os
 import torch
 import torchvision
 import glob
+import random
+import shutil
 import pandas as pd
 import torch.nn as nn
 import torch.nn.functional as F
@@ -13,13 +15,51 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 from math import ceil
-from torchvision import transforms
-from torchvision import datasets
+from torchvision import transforms, datasets
 from PIL import Image, ImageDraw
 from scipy import signal
 from scipy import ndimage
 from scipy.io import wavfile
 from pydub import AudioSegment
+
+def stratify_sample(path):
+    random.seed(30)
+    all_dir = [dir for root, dir, file in os.walk(path)]
+
+    all_dir = all_dir[0]
+    print(all_dir)
+    try:
+        os.mkdir(os.path.join(path,'Training'))
+    except FileExistsError:
+        all_dir.remove('Training')
+    try:
+        os.mkdir(os.path.join(path,'Validation'))
+    except FileExistsError:
+        all_dir.remove('Validation')
+    for dir in all_dir:
+        try:
+            os.mkdir(os.path.join(path,'Training',dir))
+        except FileExistsError:
+            pass
+        try:
+            os.mkdir(os.path.join(path,'Validation',dir))
+        except FileExistsError:
+            pass
+        all_files = [file for root, dir, file in os.walk(os.path.join(path,dir))]
+        all_files = all_files[0]
+        all_files = [file for file in all_files if file[-3:]=='png']
+        samp_length = int(len(all_files)*0.25)
+        samp = random.sample(all_files,samp_length)
+        for file in all_files:
+            if file in samp:
+                old_dir = os.path.join(path,dir,file)
+                new_dir = os.path.join(path,'Validation',dir,file)
+                shutil.move(old_dir,new_dir)
+            else:
+                old_dir = os.path.join(path,dir,file)
+                new_dir = os.path.join(path,'Training',dir,file)
+                shutil.move(old_dir,new_dir)
+
 
 def wav_to_spectogram(item, save = True):
     fs, x = wavfile.read(item)
@@ -32,6 +72,25 @@ def wav_to_spectogram(item, save = True):
         plt.savefig(f'{item[:-4]}.png',bbox_inches=0)
         print('saved!')
 
+
+def grab_dataset(train,validation):
+    transform = transforms.Compose([
+        transforms.Grayscale(num_output_channels=1),
+        transforms.ToTensor()
+    ])
+    train_folder = datasets.ImageFolder(train,transform=transform)
+    train_data_loader = torch.utils.data.DataLoader(train_folder,
+                                          batch_size=50,
+                                          shuffle=True,
+                                          num_workers=4)
+
+    validation_folder = datasets.ImageFolder(validation,transform=transform)
+    validation_data_loader = torch.utils.data.DataLoader(validation_folder,
+                                          shuffle=True,
+                                          batch_size=50,
+                                          num_workers=4)
+    return train_data_loader, validation_data_loader
+
 class nn_label:
 
     def __init__(self, path,folder):
@@ -39,7 +98,6 @@ class nn_label:
         self.path = os.path.join(path,folder) + '/'
         self.pngs = []
         self.csvs = []
-        self.wavs = []
 
     def pad_all_spectograms(self,pad_ms=2200):
         for item in self.wavs:
@@ -69,20 +127,6 @@ class nn_label:
 
         self.pngs = all_pngs
         return all_pngs
-
-    def grab_all_wavs(self):
-        all_files = [wav for root, dir, wav in os.walk(self.path)]
-        all_files = all_files[0]
-        all_wavs = []
-
-        for wav in all_files:
-            if wav[-4:]=='.wav':
-                file_name = os.path.join(self.path,wav)
-                all_wavs.append(file_name)
-
-        self.wavs = all_wavs
-        return all_wavs
-
     def grab_all_csvs(self):
         all_files = [csv for root, dir, csv in os.walk(self.path)]
         all_files = all_files[0]
@@ -100,11 +144,6 @@ class nn_label:
         self.csvs = all_csvs
         return self.csvs
 
-    def save_spectogram(self):
-        self.grab_all_wavs()
-        self.pad_all_spectograms()
-        for item in self.wavs:
-            wav_to_spectogram(item)
 
 class Net(nn.Module):
     def __init__(self):
@@ -112,7 +151,7 @@ class Net(nn.Module):
         self.fc1 = nn.Linear(220*220,1024)
         self.fc2 = nn.Linear(1024,1024)
         self.fc3 = nn.Linear(1024,1024)
-        self.fc4 = nn.Linear(1024,24)
+        self.fc4 = nn.Linear(1024,23)
 
     def forward(self,x):
         x = F.relu(self.fc1(x)) #F.relu is an activation function
