@@ -91,13 +91,32 @@ def grab_dataset(train,validation):
                                           num_workers=4)
     return train_data_loader, validation_data_loader
 
-class nn_label:
+class nn_data:
 
-    def __init__(self, path,folder):
-        self.label = folder
-        self.path = os.path.join(path,folder) + '/'
-        self.pngs = []
-        self.csvs = []
+    def __init__(self, train,validation):
+        self.train_path = train
+        self.validation_path = validation
+        self.all_training = None
+        self.all_validation = None
+
+    def grab_dataset(self):
+        transform = transforms.Compose([
+            transforms.Grayscale(num_output_channels=1),
+            transforms.ToTensor()
+        ])
+        train_folder = datasets.ImageFolder(self.train_path,transform=transform)
+        self.all_training = torch.utils.data.DataLoader(train_folder,
+                                              batch_size=50,
+                                              shuffle=True,
+                                              num_workers=4)
+
+        validation_folder = datasets.ImageFolder(self.validation_path,transform=transform)
+        self.all_validation = torch.utils.data.DataLoader(validation_folder,
+                                              shuffle=True,
+                                              batch_size=50,
+                                              num_workers=4)
+        return self.all_training, self.all_validation
+
 
     def pad_all_spectograms(self,pad_ms=2200):
         for item in self.wavs:
@@ -127,23 +146,35 @@ class nn_label:
 
         self.pngs = all_pngs
         return all_pngs
-    def grab_all_csvs(self):
-        all_files = [csv for root, dir, csv in os.walk(self.path)]
-        all_files = all_files[0]
-        all_csvs = []
 
-        for csv in all_files:
-            if csv[-4:]=='.csv':
-                file_name = os.path.join(self.path,csv)
-                if Path(f'{file_name[:-3]}png').stat().st_size > 1000:
-                    csv_file = pd.read_csv(file_name, header=None)
-                    csv_file = csv_file.to_numpy().astype(np.float32)
-                    # csv_file = torch.unsqueeze(csv_file, dim = 1)
-                    all_csvs.append(csv_file)
+class CNNet(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.conv1 = nn.Conv2d(1,32,5)
+        self.conv2 = nn.Conv2d(32,64,5)
+        self.conv3 = nn.Conv2d(64,128,5)
+        temp = torch.randn(220,220).view(-1,1,220,220)
+        self._to_linear = None
+        self.convs(temp)
 
-        self.csvs = all_csvs
-        return self.csvs
+        self.fc1 = nn.Linear(self._to_linear,512)
+        self.fc2 = nn.Linear(512,23)
 
+    def convs(self,x):
+        x = F.max_pool2d(F.relu(self.conv1(x)),(3,3)) #3 by 3 pooling
+        x = F.max_pool2d(F.relu(self.conv2(x)),(3,3))
+        x = F.max_pool2d(F.relu(self.conv3(x)),(3,3))
+
+        if not self._to_linear:
+            self._to_linear = x[0].shape[0]*x[0].shape[1]*x[0].shape[2]
+        return x
+
+    def forward(self,x):
+        x = self.convs(x)
+        x = x.view(-1,self._to_linear)
+        x = F.relu(self.fc1(x))
+        x = self.fc2(x)
+        return F.log_softmax(x,dim=1)
 
 class Net(nn.Module):
     def __init__(self):

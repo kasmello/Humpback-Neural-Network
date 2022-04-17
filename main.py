@@ -20,14 +20,13 @@ import torch.nn.functional as F
 from sklearn import preprocessing
 from sklearn.metrics import classification_report
 from tkinter import filedialog
-from NNclasses import wav_to_spectogram, Net, grab_dataset,stratify_sample
+from NNclasses import nn_data, Net, stratify_sample, CNNet
 
 if __name__ == '__main__':
     finished = False
     while not finished:
         option = input('Hello. What would you like to do?\
                     \n1: Select folders (Folder names as labels)\
-                    \n\t1b: Load pickled labels\
                     \n2: Test Vision Transformer model\
                     \n3: Generate spectograms\
                     \n4: Go through the Entire Dataset (BETA)\
@@ -36,17 +35,17 @@ if __name__ == '__main__':
                     \n7: Train and Test CNN\n')
 
         if option == '1':
-            print('Please select the folder with the trained sounds')
-            file_path = ''
+
             # This code here opens a file selection dialog
             # try:
             #     root = tk.Tk()
             #     file_path = filedialog.askdirectory()
             root = '/Volumes/Macintosh HD/Users/karmel/Desktop/Training/Humpback'
             stratify_sample(root)
-            training_file_path = '/Volumes/Macintosh HD/Users/karmel/Desktop/Training/Humpback/Training'
-            validation_file_path = '/Volumes/Macintosh HD/Users/karmel/Desktop/Training/Humpback/Validation'
-            all_training,all_validation = grab_dataset(training_file_path,validation_file_path)
+            training_path = '/Volumes/Macintosh HD/Users/karmel/Desktop/Training/Humpback/Training'
+            validation_path = '/Volumes/Macintosh HD/Users/karmel/Desktop/Training/Humpback/Validation'
+            DATA = nn_data(training_path,validation_path)
+            all_training,all_validation = DATA.grab_dataset()
             breakpoint()
         elif option == '1b':
             with open('all_training.ml','rb') as file:
@@ -125,8 +124,8 @@ if __name__ == '__main__':
             #training resnet model
 
             net = Net()
-            optimizer = optim.AdamW(net.parameters(),lr = 0.0001) #adamw algorithm
-            epochs = 10
+            optimizer = optim.AdamW(net.parameters(),lr = 0.001) #adamw algorithm
+            epochs = 5
 
             for epoch in range(epochs):
                 for batch in all_training:
@@ -158,4 +157,35 @@ if __name__ == '__main__':
             print('\n\n')
 
         elif option == '7':
-            print('in progress')
+            net = CNNet()
+            optimizer = optim.AdamW(net.parameters(),lr = 0.001) #adamw algorithm
+            epochs = 10
+
+            for epoch in range(epochs):
+                for batch in all_training:
+                    x,y = batch
+                    net.zero_grad()
+                     #sets gradients at 0 after each batch
+                    output = net(x)
+                    #calculate how wrong we are
+                    loss = F.nll_loss(output,y)
+                    loss.backward()#backward propagation
+                    optimizer.step()
+
+                print(loss)
+
+            pred = []
+            actual = []
+
+            with torch.no_grad():
+                for batch in all_validation:
+                    x,y = batch
+                    output = net(x)
+
+                    for idx, e in enumerate(output):
+                        pred.append(torch.argmax(e))
+                        actual.append(y[idx])
+            print('\n\n')
+            breakpoint()
+            print(classification_report(actual,pred))
+            print('\n\n')
