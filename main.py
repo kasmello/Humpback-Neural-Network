@@ -7,23 +7,24 @@ detect Humpback whales
 import os
 import cv2
 import torch
-import progressbar
 import pickle
 import random
 import NNclasses
+import wandb
 import matplotlib.pyplot as plt
 import numpy as np
 import tkinter as tk
 import tkmacosx as tkm
 import torch.optim as optim
 import torch.nn.functional as F
-from sklearn import preprocessing
+from tqdm import tqdm
 from sklearn.metrics import classification_report
 from tkinter import filedialog
-from NNclasses import nn_data, Net, stratify_sample, CNNet
+from NNclasses import nn_data, Net, CNNet
 
 if __name__ == '__main__':
     finished = False
+    DATA = None
     while not finished:
         option = input('Hello. What would you like to do?\
                     \n1: Select folders (Folder names as labels)\
@@ -35,18 +36,14 @@ if __name__ == '__main__':
                     \n7: Train and Test CNN\n')
 
         if option == '1':
-
             # This code here opens a file selection dialog
             # try:
             #     root = tk.Tk()
             #     file_path = filedialog.askdirectory()
             root = '/Volumes/Macintosh HD/Users/karmel/Desktop/Training/Humpback'
-            stratify_sample(root)
-            training_path = '/Volumes/Macintosh HD/Users/karmel/Desktop/Training/Humpback/Training'
-            validation_path = '/Volumes/Macintosh HD/Users/karmel/Desktop/Training/Humpback/Validation'
-            DATA = nn_data(training_path,validation_path)
-            all_training,all_validation = DATA.grab_dataset()
+            DATA = nn_data(root)
             breakpoint()
+
         elif option == '1b':
             with open('all_training.ml','rb') as file:
                 all_training = pickle.load(file)
@@ -127,9 +124,10 @@ if __name__ == '__main__':
             optimizer = optim.AdamW(net.parameters(),lr = 0.001) #adamw algorithm
             epochs = 5
 
-            for epoch in range(epochs):
-                for batch in all_training:
+            for epoch in tqdm(range(epochs)):
+                for batch in tqdm(DATA.all_training, leave = False):
                     x,y = batch
+
                     net.zero_grad()
                      #sets gradients at 0 after each batch
                     output = net(x.view(-1,220*220))
@@ -144,13 +142,15 @@ if __name__ == '__main__':
             actual = []
 
             with torch.no_grad():
-                for batch in all_validation:
+                for batch in DATA.all_validation:
                     x,y = batch
                     output = net(x.view(-1,220*220))
 
                     for idx, e in enumerate(output):
                         pred.append(torch.argmax(e))
                         actual.append(y[idx])
+            pred = DATA.inverse_encode(pred)
+            actual = DATA.inverse_encode(actual)
             print('\n\n')
             breakpoint()
             print(classification_report(actual,pred))
@@ -160,32 +160,44 @@ if __name__ == '__main__':
             net = CNNet()
             optimizer = optim.AdamW(net.parameters(),lr = 0.001) #adamw algorithm
             epochs = 10
-
-            for epoch in range(epochs):
-                for batch in all_training:
+            wandb.init(project="CNNet", entity="kasmello")
+            wandb.config = {
+              "learning_rate": 0.001,
+              "epochs": epochs,
+              "batch_size": 50
+            }
+            for epoch in tqdm(range(epochs)):
+                for batch in tqdm(DATA.all_training, leave = False):
                     x,y = batch
                     net.zero_grad()
                      #sets gradients at 0 after each batch
                     output = net(x)
                     #calculate how wrong we are
                     loss = F.nll_loss(output,y)
+
                     loss.backward()#backward propagation
                     optimizer.step()
 
-                print(loss)
 
-            pred = []
-            actual = []
+                with torch.no_grad():
+                    pred = []
+                    actual = []
 
-            with torch.no_grad():
-                for batch in all_validation:
-                    x,y = batch
-                    output = net(x)
+                    for batch in DATA.all_validation:
+                        x,y = batch
+                        output = net(x)
 
-                    for idx, e in enumerate(output):
-                        pred.append(torch.argmax(e))
-                        actual.append(y[idx])
-            print('\n\n')
-            breakpoint()
-            print(classification_report(actual,pred))
-            print('\n\n')
+                        for idx, e in enumerate(output):
+                            pred.append(torch.argmax(e))
+                            actual.append(y[idx])
+
+                    pred = DATA.inverse_encode(pred)
+                    actual = DATA.inverse_encode(actual)
+                    print('\n\n')
+                    output = classification_report(actual,pred, output_dict = True)
+                    print('\n\n')
+                    accuracy = output['accuracy']
+                    precision = output['weighted avg']['precision']
+                    recall = output['weighted avg']['recall']
+                    print({'Loss': loss, 'Validation Accuracy': accuracy, 'Wgt Precision': precision, 'Wgt Recall': recall})
+                    wandb.log({'Loss': loss, 'Validation Accuracy': accuracy, 'Wgt Precision': precision, 'Wgt Recall': recall})

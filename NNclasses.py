@@ -13,6 +13,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 from pathlib import Path
 from math import ceil
 from torchvision import transforms, datasets
@@ -21,45 +22,6 @@ from scipy import signal
 from scipy import ndimage
 from scipy.io import wavfile
 from pydub import AudioSegment
-
-def stratify_sample(path):
-    random.seed(30)
-    all_dir = [dir for root, dir, file in os.walk(path)]
-
-    all_dir = all_dir[0]
-    print(all_dir)
-    try:
-        os.mkdir(os.path.join(path,'Training'))
-    except FileExistsError:
-        all_dir.remove('Training')
-    try:
-        os.mkdir(os.path.join(path,'Validation'))
-    except FileExistsError:
-        all_dir.remove('Validation')
-    for dir in all_dir:
-        try:
-            os.mkdir(os.path.join(path,'Training',dir))
-        except FileExistsError:
-            pass
-        try:
-            os.mkdir(os.path.join(path,'Validation',dir))
-        except FileExistsError:
-            pass
-        all_files = [file for root, dir, file in os.walk(os.path.join(path,dir))]
-        all_files = all_files[0]
-        all_files = [file for file in all_files if file[-3:]=='png']
-        samp_length = int(len(all_files)*0.25)
-        samp = random.sample(all_files,samp_length)
-        for file in all_files:
-            if file in samp:
-                old_dir = os.path.join(path,dir,file)
-                new_dir = os.path.join(path,'Validation',dir,file)
-                shutil.move(old_dir,new_dir)
-            else:
-                old_dir = os.path.join(path,dir,file)
-                new_dir = os.path.join(path,'Training',dir,file)
-                shutil.move(old_dir,new_dir)
-
 
 def wav_to_spectogram(item, save = True):
     fs, x = wavfile.read(item)
@@ -72,32 +34,23 @@ def wav_to_spectogram(item, save = True):
         plt.savefig(f'{item[:-4]}.png',bbox_inches=0)
         print('saved!')
 
-
-def grab_dataset(train,validation):
-    transform = transforms.Compose([
-        transforms.Grayscale(num_output_channels=1),
-        transforms.ToTensor()
-    ])
-    train_folder = datasets.ImageFolder(train,transform=transform)
-    train_data_loader = torch.utils.data.DataLoader(train_folder,
-                                          batch_size=50,
-                                          shuffle=True,
-                                          num_workers=4)
-
-    validation_folder = datasets.ImageFolder(validation,transform=transform)
-    validation_data_loader = torch.utils.data.DataLoader(validation_folder,
-                                          shuffle=True,
-                                          batch_size=50,
-                                          num_workers=4)
-    return train_data_loader, validation_data_loader
-
 class nn_data:
 
-    def __init__(self, train,validation):
-        self.train_path = train
-        self.validation_path = validation
-        self.all_training = None
-        self.all_validation = None
+    def __init__(self, root):
+        self.all_labels = self.make_folders(root)
+        self.all_labels.sort()
+        self.enum_labels = self.enum_lbl()
+        self.train_path, self.validation_path = self.stratify_sample(root)
+        self.all_training, self.all_validation = self.grab_dataset()
+
+    def enum_lbl(self):
+        d = {}
+        for i in range(len(self.all_labels)):
+            d[self.all_labels[i]] = i
+        return d
+
+    def inverse_encode(self, llist):
+        return [self.all_labels[item] for item in llist]
 
     def grab_dataset(self):
         transform = transforms.Compose([
@@ -105,17 +58,16 @@ class nn_data:
             transforms.ToTensor()
         ])
         train_folder = datasets.ImageFolder(self.train_path,transform=transform)
-        self.all_training = torch.utils.data.DataLoader(train_folder,
+        all_training = torch.utils.data.DataLoader(train_folder,
                                               batch_size=50,
                                               shuffle=True,
                                               num_workers=4)
 
         validation_folder = datasets.ImageFolder(self.validation_path,transform=transform)
-        self.all_validation = torch.utils.data.DataLoader(validation_folder,
-                                              shuffle=True,
+        all_validation = torch.utils.data.DataLoader(validation_folder,
                                               batch_size=50,
                                               num_workers=4)
-        return self.all_training, self.all_validation
+        return all_training, all_validation
 
 
     def pad_all_spectograms(self,pad_ms=2200):
@@ -130,22 +82,50 @@ class nn_data:
                 padded = silence1 + audio + silence2  # Adding silence after the audio
                 padded.export(item, format='wav')
 
-    def grab_all_spectograms(self):
-        all_files = [file for root, dir, file in os.walk(self.path)]
-        all_files = all_files[0]
-        all_pngs = []
-        for file in all_files:
-            if file[-4:]=='.png':
-                file_name = os.path.join(self.path,file)
-                if Path(file_name).stat().st_size > 1000:
-                    im = Image.open(file_name)
-                    im_tensor = transforms.ToTensor()(im).unsqueeze_(0)
-                    plt.imshow(transforms.ToPILImage()(transforms.ToTensor()(im)), interpolation="bicubic")
-                    # plt.show()
-                    all_pngs.append(im_tensor)
+    def make_folders(self, root):
+        all_dir = [dir for root, dir, file in os.walk(root)]
 
-        self.pngs = all_pngs
-        return all_pngs
+        all_dir = all_dir[0]
+        try:
+            os.mkdir(os.path.join(root,'Training'))
+        except FileExistsError:
+            all_dir.remove('Training')
+        try:
+            os.mkdir(os.path.join(root,'Validation'))
+        except FileExistsError:
+            all_dir.remove('Validation')
+        print(all_dir)
+        return all_dir
+
+    def stratify_sample(self, root):
+        random.seed(30)
+        for dir in self.all_labels:
+            dir_ec = str(self.enum_labels[dir])
+            try:
+                os.mkdir(os.path.join(root,'Training',dir_ec))
+            except FileExistsError:
+                print('folder exists: carry on')
+            try:
+                os.mkdir(os.path.join(root,'Validation',dir_ec))
+            except FileExistsError:
+                print('folder exists: carry on')
+            label_dir = os.path.join(root,dir)
+            all_files = [file for root, dir, file in os.walk(label_dir)]
+            all_files = all_files[0]
+            all_files = [file for file in all_files if file[-3:]=='png']
+            random.seed(30)
+            samp_length = int(len(all_files)*0.25)
+            samp = random.sample(all_files,samp_length)
+            for file in tqdm(all_files):
+                if file in samp:
+                    old_dir = os.path.join(root,dir,file)
+                    new_dir = os.path.join(root,'Validation',dir_ec,file)
+                    shutil.move(old_dir,new_dir)
+                else:
+                    old_dir = os.path.join(root,dir,file)
+                    new_dir = os.path.join(root,'Training',dir_ec,file)
+                    shutil.move(old_dir,new_dir)
+        return os.path.join(root, 'Training'), os.path.join(root, 'Validation')
 
 class CNNet(nn.Module):
     def __init__(self):
