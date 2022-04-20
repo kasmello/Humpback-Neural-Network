@@ -159,7 +159,7 @@ if __name__ == '__main__':
         elif option == '7':
             net = CNNet()
             optimizer = optim.AdamW(net.parameters(),lr = 0.001) #adamw algorithm
-            epochs = 10
+            epochs = 20
             wandb.init(project="CNNet", entity="kasmello")
             wandb.config = {
               "learning_rate": 0.001,
@@ -201,3 +201,5 @@ if __name__ == '__main__':
                     recall = output['weighted avg']['recall']
                     print({'Loss': loss, 'Validation Accuracy': accuracy, 'Wgt Precision': precision, 'Wgt Recall': recall})
                     wandb.log({'Loss': loss, 'Validation Accuracy': accuracy, 'Wgt Precision': precision, 'Wgt Recall': recall})
+                    if epoch == epochs:
+                        print(output)
