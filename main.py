@@ -158,14 +158,15 @@ if __name__ == '__main__':
 
         elif option == '7':
             net = CNNet()
-            optimizer = optim.AdamW(net.parameters(),lr = 0.001) #adamw algorithm
-            epochs = 20
+            optimizer = optim.AdamW(net.parameters(),lr = 0.0005) #adamw algorithm
+            epochs = 10
             wandb.init(project="CNNet", entity="kasmello")
             wandb.config = {
-              "learning_rate": 0.001,
+              "learning_rate": [0.0001,0.001],
               "epochs": epochs,
-              "batch_size": 50
+              "batch_size": [50,20]
             }
+            wandb.watch(net, log_freq = 100)
             for epoch in tqdm(range(epochs)):
                 for batch in tqdm(DATA.all_training, leave = False):
                     x,y = batch
@@ -180,12 +181,17 @@ if __name__ == '__main__':
 
 
                 with torch.no_grad():
+                    images = []
                     pred = []
                     actual = []
+
+
 
                     for batch in DATA.all_validation:
                         x,y = batch
                         output = net(x)
+                        if epoch == epochs:
+                            images.extend(x)
 
                         for idx, e in enumerate(output):
                             pred.append(torch.argmax(e))
@@ -199,7 +205,15 @@ if __name__ == '__main__':
                     accuracy = output['accuracy']
                     precision = output['weighted avg']['precision']
                     recall = output['weighted avg']['recall']
+
+
+
                     print({'Loss': loss, 'Validation Accuracy': accuracy, 'Wgt Precision': precision, 'Wgt Recall': recall})
                     wandb.log({'Loss': loss, 'Validation Accuracy': accuracy, 'Wgt Precision': precision, 'Wgt Recall': recall})
                     if epoch == epochs:
                         print(output)
+                        image_table = wandb.Table()
+                        image_table.add_column("image", images)
+                        image_table.add_column("label", actual)
+                        image_table.add_column("class_prediction", pred)
+                        wandb.log({"Image Predictions": image_table})
