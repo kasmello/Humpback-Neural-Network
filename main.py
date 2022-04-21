@@ -158,7 +158,7 @@ if __name__ == '__main__':
 
         elif option == '7':
             net = CNNet()
-            optimizer = optim.AdamW(net.parameters(),lr = 0.0005) #adamw algorithm
+            optimizer = optim.AdamW(net.parameters(),lr = 0.0007) #adamw algorithm
             epochs = 10
             wandb.init(project="CNNet", entity="kasmello")
             wandb.config = {
@@ -179,18 +179,15 @@ if __name__ == '__main__':
                     loss.backward()#backward propagation
                     optimizer.step()
 
-
                 with torch.no_grad():
                     images = []
                     pred = []
                     actual = []
 
-
-
-                    for batch in DATA.all_validation:
-                        x,y = batch
+                    for batch_v in DATA.all_validation:
+                        x,y = batch_v
                         output = net(x)
-                        if epoch == epochs:
+                        if epoch == epochs-1:
                             images.extend(x)
 
                         for idx, e in enumerate(output):
@@ -205,15 +202,12 @@ if __name__ == '__main__':
                     accuracy = output['accuracy']
                     precision = output['weighted avg']['precision']
                     recall = output['weighted avg']['recall']
-
-
-
                     print({'Loss': loss, 'Validation Accuracy': accuracy, 'Wgt Precision': precision, 'Wgt Recall': recall})
                     wandb.log({'Loss': loss, 'Validation Accuracy': accuracy, 'Wgt Precision': precision, 'Wgt Recall': recall})
-                    if epoch == epochs:
-                        print(output)
-                        image_table = wandb.Table()
-                        image_table.add_column("image", images)
-                        image_table.add_column("label", actual)
-                        image_table.add_column("class_prediction", pred)
+                    if epoch == epochs-1:
+                        print(classification_report(actual,pred))
+                        image_labels = []
+                        for i in range(len(pred)):
+                            image_labels.append([images[i],actual[i],pred[i]])
+                        image_table = wandb.Table(data=image_labels,columns=['image', 'label', 'class prediction'])
                         wandb.log({"Image Predictions": image_table})

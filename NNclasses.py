@@ -59,13 +59,13 @@ class nn_data:
         ])
         train_folder = datasets.ImageFolder(self.train_path,transform=transform)
         all_training = torch.utils.data.DataLoader(train_folder,
-                                              batch_size=50,
+                                              batch_size=20,
                                               shuffle=True,
                                               num_workers=4)
 
         validation_folder = datasets.ImageFolder(self.validation_path,transform=transform)
         all_validation = torch.utils.data.DataLoader(validation_folder,
-                                              batch_size=50,
+                                              batch_size=20,
                                               num_workers=4)
         return all_training, all_validation
 
@@ -130,9 +130,9 @@ class nn_data:
 class CNNet(nn.Module):
     def __init__(self):
         super().__init__()
-        self.conv1 = nn.Conv2d(1,32,5)
-        self.conv2 = nn.Conv2d(32,64,5)
-        self.conv3 = nn.Conv2d(64,128,5)
+        self.conv1 = nn.Conv2d(1,32,3)
+        self.conv2 = nn.Conv2d(32,64,3)
+        self.conv3 = nn.Conv2d(64,128,3)
         temp = torch.randn(220,220).view(-1,1,220,220)
         self._to_linear = None
         self.convs(temp)
@@ -141,9 +141,9 @@ class CNNet(nn.Module):
         self.fc2 = nn.Linear(512,23)
 
     def convs(self,x):
-        x = F.max_pool2d(F.relu(self.conv1(x)),(3,3)) #3 by 3 pooling
-        x = F.max_pool2d(F.relu(self.conv2(x)),(3,3))
-        x = F.max_pool2d(F.relu(self.conv3(x)),(3,3))
+        x = F.max_pool2d(F.relu(self.conv1(x)),(2,2)) #3 by 3 pooling
+        x = F.max_pool2d(F.relu(self.conv2(x)),(2,2))
+        x = F.max_pool2d(F.relu(self.conv3(x)),(2,2))
 
         if not self._to_linear:
             self._to_linear = x[0].shape[0]*x[0].shape[1]*x[0].shape[2]
