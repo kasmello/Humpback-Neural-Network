@@ -1,0 +1,7 @@
+project: CNNet_Sweep
+program: cnn_sweep.py
+method: random
+entity: kasmello
+parameters:
+  lr:
+    values: [0.0001, 0.001]

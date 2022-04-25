@@ -13,27 +13,73 @@ import NNclasses
 import wandb
 import matplotlib.pyplot as plt
 import numpy as np
-import tkinter as tk
-import tkmacosx as tkm
 import torch.optim as optim
+import torch.nn as nn
 import torch.nn.functional as F
+import torchvision.models as models
 from tqdm import tqdm
 from sklearn.metrics import classification_report
-from tkinter import filedialog
 from NNclasses import nn_data, Net, CNNet
+
+
+DATA = None
+
+def train_cnn(config=None):
+    lr = 0.0007
+    wandb.init(project="CNNet", entity="kasmello",config=config):
+    net = CNNet()
+    optimizer = optim.AdamW(net.parameters(),lr = lr) #adamw algorithm
+    epochs = 10
+    for epoch in tqdm(range(epochs)):
+        for batch in tqdm(DATA.all_training, leave = False):
+            x,y = batch
+            net.zero_grad()
+             #sets gradients at 0 after each batch
+            output = net(x)
+            #calculate how wrong we are
+            loss = F.nll_loss(output,y)
+
+            loss.backward()#backward propagation
+            optimizer.step()
+
+        with torch.no_grad():
+            pred = []
+            actual = []
+
+            for batch_v in DATA.all_validation:
+                x,y = batch_v
+                output = net(x)
+
+                for idx, e in enumerate(output):
+                    pred.append(torch.argmax(e))
+                    actual.append(y[idx])
+
+            pred = DATA.inverse_encode(pred)
+            actual = DATA.inverse_encode(actual)
+            print('\n\n')
+            output = classification_report(actual,pred, output_dict = True)
+            print('\n\n')
+            accuracy = output['accuracy']
+            precision = output['weighted avg']['precision']
+            recall = output['weighted avg']['recall']
+            print({'Loss': loss, 'Validation Accuracy': accuracy, 'Wgt Precision': precision, 'Wgt Recall': recall})
+            wandb.log({'Loss': loss, 'Validation Accuracy': accuracy, 'Wgt Precision': precision, 'Wgt Recall': recall})
+            if epoch == epochs-1:
+                return actual,pred
 
 if __name__ == '__main__':
     finished = False
-    DATA = None
     while not finished:
-        option = input('Hello. What would you like to do?\
+        option = input('\nHello. What would you like to do?\
                     \n1: Select folders (Folder names as labels)\
                     \n2: Test Vision Transformer model\
                     \n3: Generate spectograms\
                     \n4: Go through the Entire Dataset (BETA)\
                     \n5: Train Vision Transformer\
                     \n6: Train and Test NN\
-                    \n7: Train and Test CNN\n')
+                    \n7: Train and Test CNN\
+                    \n8: Train and Test Pretrained ResNet-18\
+                    )
 
         if option == '1':
             # This code here opens a file selection dialog
@@ -41,7 +87,7 @@ if __name__ == '__main__':
             #     root = tk.Tk()
             #     file_path = filedialog.askdirectory()
             root = '/Volumes/Macintosh HD/Users/karmel/Desktop/Training/Humpback'
-            DATA = nn_data(root)
+            DATA = nn_data(root, batch_size = 16)
             breakpoint()
 
         elif option == '1b':
@@ -157,38 +203,41 @@ if __name__ == '__main__':
             print('\n\n')
 
         elif option == '7':
-            net = CNNet()
-            optimizer = optim.AdamW(net.parameters(),lr = 0.0007) #adamw algorithm
+            actual, pred = train_cnn()
+            print(classification_report(actual,pred))
+
+        elif option == '8':
+            wandb.init(project="ResNet18", entity="kasmello")
+            net = models.resnet18()
+
+            criterion = nn.CrossEntropyLoss()
+            optimizer = optim.SGD(net.parameters(),lr = 0.0001,momentum = 0.9) #resnet uses sgd
             epochs = 10
-            wandb.init(project="CNNet", entity="kasmello")
-            wandb.config = {
-              "learning_rate": [0.0001,0.001],
-              "epochs": epochs,
-              "batch_size": [50,20]
-            }
-            wandb.watch(net, log_freq = 100)
+            num_ftrs = net.fc.in_features
+            net.fc = nn.Linear(num_ftrs, 23)
+            valid_loss_min = np.Inf
             for epoch in tqdm(range(epochs)):
                 for batch in tqdm(DATA.all_training, leave = False):
+                    net.train()
                     x,y = batch
-                    net.zero_grad()
+                    optimizer.zero_grad()
                      #sets gradients at 0 after each batch
                     output = net(x)
                     #calculate how wrong we are
-                    loss = F.nll_loss(output,y)
+                    loss = criterion(output,y)
 
                     loss.backward()#backward propagation
                     optimizer.step()
 
                 with torch.no_grad():
-                    images = []
+                    net.eval()
+
                     pred = []
                     actual = []
 
                     for batch_v in DATA.all_validation:
                         x,y = batch_v
                         output = net(x)
-                        if epoch == epochs-1:
-                            images.extend(x)
 
                         for idx, e in enumerate(output):
                             pred.append(torch.argmax(e))
@@ -206,8 +255,3 @@ if __name__ == '__main__':
                     wandb.log({'Loss': loss, 'Validation Accuracy': accuracy, 'Wgt Precision': precision, 'Wgt Recall': recall})
                     if epoch == epochs-1:
                         print(classification_report(actual,pred))
-                        image_labels = []
-                        for i in range(len(pred)):
-                            image_labels.append([images[i],actual[i],pred[i]])
-                        image_table = wandb.Table(data=image_labels,columns=['image', 'label', 'class prediction'])
-                        wandb.log({"Image Predictions": image_table})

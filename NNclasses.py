@@ -8,13 +8,11 @@ import torchvision
 import glob
 import random
 import shutil
-import pandas as pd
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
-from pathlib import Path
 from math import ceil
 from torchvision import transforms, datasets
 from PIL import Image, ImageDraw
@@ -36,38 +34,33 @@ def wav_to_spectogram(item, save = True):
 
 class nn_data:
 
-    def __init__(self, root):
+    def __init__(self, root, batch_size):
         self.all_labels = self.make_folders(root)
         self.all_labels.sort()
-        self.enum_labels = self.enum_lbl()
         self.train_path, self.validation_path = self.stratify_sample(root)
-        self.all_training, self.all_validation = self.grab_dataset()
+        self.all_training, self.all_validation, self.label_dict = self.grab_dataset(batch_size)
+        self.label_dict = {v: k for k, v in self.label_dict.items()}
 
-    def enum_lbl(self):
-        d = {}
-        for i in range(len(self.all_labels)):
-            d[self.all_labels[i]] = i
-        return d
 
     def inverse_encode(self, llist):
-        return [self.all_labels[item] for item in llist]
+        return [self.label_dict[int(x.item())] for x in llist]
 
-    def grab_dataset(self):
+    def grab_dataset(self, batch_size):
         transform = transforms.Compose([
             transforms.Grayscale(num_output_channels=1),
             transforms.ToTensor()
         ])
         train_folder = datasets.ImageFolder(self.train_path,transform=transform)
         all_training = torch.utils.data.DataLoader(train_folder,
-                                              batch_size=20,
+                                              batch_size=batch_size,
                                               shuffle=True,
                                               num_workers=4)
 
         validation_folder = datasets.ImageFolder(self.validation_path,transform=transform)
         all_validation = torch.utils.data.DataLoader(validation_folder,
-                                              batch_size=20,
+                                              batch_size=batch_size,
                                               num_workers=4)
-        return all_training, all_validation
+        return all_training, all_validation, train_folder.class_to_idx
 
 
     def pad_all_spectograms(self,pad_ms=2200):
@@ -100,13 +93,12 @@ class nn_data:
     def stratify_sample(self, root):
         random.seed(30)
         for dir in self.all_labels:
-            dir_ec = str(self.enum_labels[dir])
             try:
-                os.mkdir(os.path.join(root,'Training',dir_ec))
+                os.mkdir(os.path.join(root,'Training',dir))
             except FileExistsError:
                 print('folder exists: carry on')
             try:
-                os.mkdir(os.path.join(root,'Validation',dir_ec))
+                os.mkdir(os.path.join(root,'Validation',dir))
             except FileExistsError:
                 print('folder exists: carry on')
             label_dir = os.path.join(root,dir)
@@ -119,21 +111,21 @@ class nn_data:
             for file in tqdm(all_files):
                 if file in samp:
                     old_dir = os.path.join(root,dir,file)
-                    new_dir = os.path.join(root,'Validation',dir_ec,file)
+                    new_dir = os.path.join(root,'Validation',dir,file)
                     shutil.move(old_dir,new_dir)
                 else:
                     old_dir = os.path.join(root,dir,file)
-                    new_dir = os.path.join(root,'Training',dir_ec,file)
+                    new_dir = os.path.join(root,'Training',dir,file)
                     shutil.move(old_dir,new_dir)
         return os.path.join(root, 'Training'), os.path.join(root, 'Validation')
 
 class CNNet(nn.Module):
     def __init__(self):
         super().__init__()
-        self.conv1 = nn.Conv2d(1,32,3)
-        self.conv2 = nn.Conv2d(32,64,3)
-        self.conv3 = nn.Conv2d(64,128,3)
-        temp = torch.randn(220,220).view(-1,1,220,220)
+        self.conv1 = nn.Conv2d(1,32,5)
+        self.conv2 = nn.Conv2d(32,64,5)
+        self.conv3 = nn.Conv2d(64,128,5)
+        temp = torch.randn(224,224).view(-1,1,224,224)
         self._to_linear = None
         self.convs(temp)
 
@@ -159,7 +151,7 @@ class CNNet(nn.Module):
 class Net(nn.Module):
     def __init__(self):
         super().__init__()
-        self.fc1 = nn.Linear(220*220,1024)
+        self.fc1 = nn.Linear(224*224,1024)
         self.fc2 = nn.Linear(1024,1024)
         self.fc3 = nn.Linear(1024,1024)
         self.fc4 = nn.Linear(1024,23)
@@ -170,6 +162,9 @@ class Net(nn.Module):
         x = F.relu(self.fc3(x))
         x = self.fc4(x)
         return F.log_softmax(x,dim=1)#probability distribution
+
+
+
 
 class PatchEmbed(nn.Module):
     """ Split image into patches (like a jigsaw puzzle)
