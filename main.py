@@ -164,8 +164,6 @@ if __name__ == '__main__':
 
 
         elif option[0] == '6':
-            #training resnet model
-
             net = Net()
             optimizer = optim.AdamW(net.parameters(),lr = 0.001) #adamw algorithm
             epochs = 5
@@ -182,25 +180,30 @@ if __name__ == '__main__':
                     loss.backward()#backward propagation
                     optimizer.step()
 
-                print(loss)
+                pred = []
+                actual = []
 
-            pred = []
-            actual = []
+                with torch.no_grad():
+                    for batch in DATA.all_validation:
+                        x,y = batch
+                        output = net(x.view(-1,220*220))
 
-            with torch.no_grad():
-                for batch in DATA.all_validation:
-                    x,y = batch
-                    output = net(x.view(-1,220*220))
+                        for idx, e in enumerate(output):
+                            pred.append(torch.argmax(e))
+                            actual.append(y[idx])
+                pred = DATA.inverse_encode(pred)
+                actual = DATA.inverse_encode(actual)
+                print('\n\n')
+                output = classification_report(actual,pred, output_dict = True)
+                print('\n\n')
+                accuracy = output['accuracy']
+                precision = output['weighted avg']['precision']
+                recall = output['weighted avg']['recall']
+                print({'Loss': loss, 'Validation Accuracy': accuracy, 'Wgt Precision': precision, 'Wgt Recall': recall})
+                wandb.log({'Loss': loss, 'Validation Accuracy': accuracy, 'Wgt Precision': precision, 'Wgt Recall': recall})
+                if epoch == epochs-1:
+                    print(classification_report(actual,pred))
 
-                    for idx, e in enumerate(output):
-                        pred.append(torch.argmax(e))
-                        actual.append(y[idx])
-            pred = DATA.inverse_encode(pred)
-            actual = DATA.inverse_encode(actual)
-            print('\n\n')
-            breakpoint()
-            print(classification_report(actual,pred))
-            print('\n\n')
 
         elif option == '7':
             actual, pred = train_cnn()
