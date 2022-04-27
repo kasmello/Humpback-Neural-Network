@@ -10,6 +10,7 @@ import random
 import shutil
 import torch.nn as nn
 import torch.nn.functional as F
+import torchvision.models as models
 import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
@@ -45,21 +46,23 @@ class nn_data:
     def inverse_encode(self, llist):
         return [self.label_dict[int(x.item())] for x in llist]
 
+
     def grab_dataset(self, batch_size):
         transform = transforms.Compose([
             transforms.Grayscale(num_output_channels=1),
+            transforms.RandAugment(),
             transforms.ToTensor()
         ])
         train_folder = datasets.ImageFolder(self.train_path,transform=transform)
         all_training = torch.utils.data.DataLoader(train_folder,
                                               batch_size=batch_size,
                                               shuffle=True,
-                                              num_workers=4)
+                                              num_workers=3)
 
         validation_folder = datasets.ImageFolder(self.validation_path,transform=transform)
         all_validation = torch.utils.data.DataLoader(validation_folder,
                                               batch_size=batch_size,
-                                              num_workers=4)
+                                              num_workers=3)
         return all_training, all_validation, train_folder.class_to_idx
 
 
@@ -122,15 +125,18 @@ class nn_data:
 class CNNet(nn.Module):
     def __init__(self):
         super().__init__()
-        self.conv1 = nn.Conv2d(1,32,5)
-        self.conv2 = nn.Conv2d(32,64,5)
-        self.conv3 = nn.Conv2d(64,128,5)
+        self.conv1 = nn.Conv2d(1,32,3)
+        self.conv2 = nn.Conv2d(32,64,3)
+        self.conv3 = nn.Conv2d(64,128,3)
         temp = torch.randn(224,224).view(-1,1,224,224)
         self._to_linear = None
         self.convs(temp)
 
         self.fc1 = nn.Linear(self._to_linear,512)
         self.fc2 = nn.Linear(512,23)
+
+    def __str__(self):
+        return 'CNNet2'
 
     def convs(self,x):
         x = F.max_pool2d(F.relu(self.conv1(x)),(2,2)) #3 by 3 pooling
@@ -148,6 +154,7 @@ class CNNet(nn.Module):
         x = self.fc2(x)
         return F.log_softmax(x,dim=1)
 
+
 class Net(nn.Module):
     def __init__(self):
         super().__init__()
@@ -155,6 +162,9 @@ class Net(nn.Module):
         self.fc2 = nn.Linear(1024,1024)
         self.fc3 = nn.Linear(1024,1024)
         self.fc4 = nn.Linear(1024,23)
+
+    def __str__(self):
+        return 'Net'
 
     def forward(self,x):
         x = F.relu(self.fc1(x)) #F.relu is an activation function
@@ -178,7 +188,7 @@ class PatchEmbed(nn.Module):
         size of patch
 
     in_chans: int
-        number of input channels
+        number of input channels (1 for grayscale, 3 for rgb)
 
     embed_dim: int
         the embedding dimension
@@ -191,7 +201,7 @@ class PatchEmbed(nn.Module):
     proj: nn.Conv2d
         convolutional layer that does both splitting and embedding
     """
-    def __init__(self, img_size, patch_size, in_chans=3,embed_dim=768):
+    def __init__(self, patch_size, img_size,in_chans=1,embed_dim=768):
         super().__init__()
         self.img_size = img_size
         self.patch_size = patch_size
@@ -462,10 +472,10 @@ class VisionTransformer(nn.Module):
     """
     def __init__(
             self,
-            img_size=384,
+            img_size=224,
             patch_size=16,
-            in_chans=3,
-            n_classes=1000,
+            in_chans=1,
+            n_classes=23,
             embed_dim=768,
             depth=12,
             n_heads=12,

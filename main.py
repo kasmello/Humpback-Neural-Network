@@ -24,12 +24,16 @@ from NNclasses import nn_data, Net, CNNet
 
 DATA = None
 
-def train_cnn(config=None):
-    lr = 0.0007
-    wandb.init(project="CNNet", entity="kasmello",config=config):
-    net = CNNet()
-    optimizer = optim.AdamW(net.parameters(),lr = lr) #adamw algorithm
-    epochs = 10
+def train_pretrained_nn(lr=0.001,optimizer=optim.AdamW,net=None,epochs=10,lbl='',\
+                criterion=nn.CrossEntropyLoss(), momentum=None):
+    name = str(net)
+    if len(str(net))>10:
+        name = lbl
+    wandb.init(project=name, name=f'lr={lr}',entity="kasmello")
+    if momentum:
+        optimizer = optimizer(net.parameters(),lr = lr,momentum = momentum)
+    else:
+        optimizer = optimizer(net.parameters(),lr = lr) #adamw algorithm
     for epoch in tqdm(range(epochs)):
         for batch in tqdm(DATA.all_training, leave = False):
             x,y = batch
@@ -37,35 +41,66 @@ def train_cnn(config=None):
              #sets gradients at 0 after each batch
             output = net(x)
             #calculate how wrong we are
-            loss = F.nll_loss(output,y)
-
+            loss = criterion(output,y)
             loss.backward()#backward propagation
             optimizer.step()
+        actual, pred = validate_model(net,loss)
+        if epoch == epochs-1:
+            return actual, pred
 
-        with torch.no_grad():
-            pred = []
-            actual = []
+def train_nn(lr=0.001,optimizer=optim.AdamW,net=None,epochs=10,lbl='',loss_f=F.nll_loss, momentum=None):
+    name = str(net)
+    if len(str(net))>10:
+        name = lbl
+    wandb.init(project=name, name=f'lr={lr}',entity="kasmello")
+    if momentum:
+        optimizer = optimizer(net.parameters(),lr = lr,momentum = momentum)
+    else:
+        optimizer = optimizer(net.parameters(),lr = lr) #adamw algorithm
+    for epoch in tqdm(range(epochs)):
+        for batch in tqdm(DATA.all_training, leave = False):
+            x,y = batch
+            net.zero_grad()
+             #sets gradients at 0 after each batch
+            if str(net)=='Net':
+                output = net(x.view(-1,224*224))
+            else:
+                output = net(x)
+            #calculate how wrong we are
+            loss = loss_f(output,y)
+            loss.backward()#backward propagation
+            optimizer.step()
+        actual, pred = validate_model(net,loss)
+        if epoch == epochs-1:
+            return actual, pred
 
-            for batch_v in DATA.all_validation:
-                x,y = batch_v
+
+
+def validate_model(net,loss):
+    with torch.no_grad():
+        pred = []
+        actual = []
+
+        for batch_v in DATA.all_validation:
+            x,y = batch_v
+            if str(net)=='Net':
+                output = net(x.view(-1,224*224))
+            else:
                 output = net(x)
 
-                for idx, e in enumerate(output):
-                    pred.append(torch.argmax(e))
-                    actual.append(y[idx])
-
-            pred = DATA.inverse_encode(pred)
-            actual = DATA.inverse_encode(actual)
-            print('\n\n')
-            output = classification_report(actual,pred, output_dict = True)
-            print('\n\n')
-            accuracy = output['accuracy']
-            precision = output['weighted avg']['precision']
-            recall = output['weighted avg']['recall']
-            print({'Loss': loss, 'Validation Accuracy': accuracy, 'Wgt Precision': precision, 'Wgt Recall': recall})
-            wandb.log({'Loss': loss, 'Validation Accuracy': accuracy, 'Wgt Precision': precision, 'Wgt Recall': recall})
-            if epoch == epochs-1:
-                return actual,pred
+            for idx, e in enumerate(output):
+                pred.append(torch.argmax(e))
+                actual.append(y[idx])
+        pred = DATA.inverse_encode(pred)
+        actual = DATA.inverse_encode(actual)
+        print('\n\n')
+        output = classification_report(actual,pred, output_dict = True)
+        accuracy = output['accuracy']
+        precision = output['weighted avg']['precision']
+        recall = output['weighted avg']['recall']
+        print({'Loss': loss, 'Validation Accuracy': accuracy, 'Wgt Precision': precision, 'Wgt Recall': recall})
+        wandb.log({'Loss': loss, 'Validation Accuracy': accuracy, 'Wgt Precision': precision, 'Wgt Recall': recall})
+        return actual,pred
 
 if __name__ == '__main__':
     finished = False
@@ -79,7 +114,7 @@ if __name__ == '__main__':
                     \n6: Train and Test NN\
                     \n7: Train and Test CNN\
                     \n8: Train and Test Pretrained ResNet-18\
-                    )
+                    \n9 Train and Test VGG16\n')
 
         if option == '1':
             # This code here opens a file selection dialog
@@ -97,8 +132,6 @@ if __name__ == '__main__':
                 all_validation = pickle.load(file)
 
         elif option == '2':
-            k = 10
-            imagenet_labels = dict(enumerate(open('classes.txt')))
 
             model = torch.load('model.pth')
             model.eval()
@@ -162,63 +195,55 @@ if __name__ == '__main__':
                     for png in item.pngs:
                         input = png
 
-
         elif option[0] == '6':
-            net = Net()
-            optimizer = optim.AdamW(net.parameters(),lr = 0.001) #adamw algorithm
-            epochs = 5
+            actual, pred = train_nn(net = Net(), lr = 0.001)
+            print(classification_report(actual,pred))
 
+        elif option == '7':
+            actual, pred = train_nn(net = CNNet(), lr = 0.001)
+            print(classification_report(actual,pred))
+
+        elif option == '8':
+            model = models.resnet18()
+            device = torch.device("cuda" if torch.cuda.is_available()
+                                  else "cpu")
+            model = model.to(device)
+            model.conv1 = nn.Conv2d(1,64,kernel_size=7, stride=2, padding=3,bias=False)
+            num_ftrs = model.fc.in_features
+            model.fc = nn.Linear(num_ftrs, 23)
+            lr = 0.01
+            momentum = 0.9
+            epochs=10
+            criterion = nn.CrossEntropyLoss()
+            wandb.init(project='ResNet18', name=f'lr={lr}',entity="kasmello")
+            optimizer = optim.SGD(model.parameters(),lr = lr,momentum = momentum)
+            model.eval()
             for epoch in tqdm(range(epochs)):
                 for batch in tqdm(DATA.all_training, leave = False):
+                    model.train()
                     x,y = batch
-
-                    net.zero_grad()
+                    model.zero_grad()
                      #sets gradients at 0 after each batch
-                    output = net(x.view(-1,220*220))
+                    output = model(x)
                     #calculate how wrong we are
-                    loss = F.nll_loss(output,y)
+                    loss = criterion(output,y)
                     loss.backward()#backward propagation
                     optimizer.step()
-
-                pred = []
-                actual = []
-
-                with torch.no_grad():
-                    for batch in DATA.all_validation:
-                        x,y = batch
-                        output = net(x.view(-1,220*220))
-
-                        for idx, e in enumerate(output):
-                            pred.append(torch.argmax(e))
-                            actual.append(y[idx])
-                pred = DATA.inverse_encode(pred)
-                actual = DATA.inverse_encode(actual)
-                print('\n\n')
-                output = classification_report(actual,pred, output_dict = True)
-                print('\n\n')
-                accuracy = output['accuracy']
-                precision = output['weighted avg']['precision']
-                recall = output['weighted avg']['recall']
-                print({'Loss': loss, 'Validation Accuracy': accuracy, 'Wgt Precision': precision, 'Wgt Recall': recall})
-                wandb.log({'Loss': loss, 'Validation Accuracy': accuracy, 'Wgt Precision': precision, 'Wgt Recall': recall})
+                model.eval()
+                actual, pred = validate_model(model,loss)
                 if epoch == epochs-1:
                     print(classification_report(actual,pred))
 
 
-        elif option == '7':
-            actual, pred = train_cnn()
-            print(classification_report(actual,pred))
-
-        elif option == '8':
-            wandb.init(project="ResNet18", entity="kasmello")
-            net = models.resnet18()
-
-            criterion = nn.CrossEntropyLoss()
-            optimizer = optim.SGD(net.parameters(),lr = 0.0001,momentum = 0.9) #resnet uses sgd
-            epochs = 10
+        elif option == '9':
+            wandb.init(project="VGG16", entity="kasmello")
+            net = models.vgg16()
+            lr = 0.0007
+            net.conv1 = nn.Conv2d(1,64,kernel_size=3, stride=1, padding=1,bias=False)
+            print(net.eval())
             num_ftrs = net.fc.in_features
             net.fc = nn.Linear(num_ftrs, 23)
-            valid_loss_min = np.Inf
+            optimizer = optim.AdamW(net.parameters(),lr = lr)
             for epoch in tqdm(range(epochs)):
                 for batch in tqdm(DATA.all_training, leave = False):
                     net.train()
@@ -227,7 +252,7 @@ if __name__ == '__main__':
                      #sets gradients at 0 after each batch
                     output = net(x)
                     #calculate how wrong we are
-                    loss = criterion(output,y)
+                    loss = F.nll_loss(output,y)
 
                     loss.backward()#backward propagation
                     optimizer.step()

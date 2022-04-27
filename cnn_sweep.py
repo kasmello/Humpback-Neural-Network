@@ -16,7 +16,7 @@ if __name__=='__main__':
 
     root = '/Volumes/Macintosh HD/Users/karmel/Desktop/Training/Humpback'
     DATA = nn_data(root, batch_size = 16)
-    wandb.init(project="CNNet_Sweep2",name = f'lr={config.lr}',entity="kasmello")
+    wandb.init(project="CNNet_Sweep",name = f'lr={config.lr}',entity="kasmello")
     config=wandb.config
     net = CNNet()
     optimizer = optim.AdamW(net.parameters(),lr = config.lr) #adamw algorithm
