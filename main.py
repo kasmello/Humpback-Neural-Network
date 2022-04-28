@@ -25,7 +25,7 @@ from NNclasses import nn_data, Net, CNNet
 DATA = None
 
 def train_pretrained_nn(lr=0.001,optimizer=optim.AdamW,net=None,epochs=10,lbl='',\
-                criterion=nn.CrossEntropyLoss(), momentum=None):
+                loss_f=F.nll_loss, momentum=None):
     name = str(net)
     if len(str(net))>10:
         name = lbl
@@ -36,14 +36,16 @@ def train_pretrained_nn(lr=0.001,optimizer=optim.AdamW,net=None,epochs=10,lbl=''
         optimizer = optimizer(net.parameters(),lr = lr) #adamw algorithm
     for epoch in tqdm(range(epochs)):
         for batch in tqdm(DATA.all_training, leave = False):
+            net.train()
             x,y = batch
             net.zero_grad()
              #sets gradients at 0 after each batch
-            output = net(x)
+            output = F.log_softmax(net(x),dim=1)
             #calculate how wrong we are
-            loss = criterion(output,y)
+            loss = loss_f(output,y)
             loss.backward()#backward propagation
             optimizer.step()
+        net.eval()
         actual, pred = validate_model(net,loss)
         if epoch == epochs-1:
             return actual, pred
@@ -214,25 +216,9 @@ if __name__ == '__main__':
             lr = 0.01
             momentum = 0.9
             epochs=10
-            criterion = nn.CrossEntropyLoss()
-            wandb.init(project='ResNet18', name=f'lr={lr}',entity="kasmello")
-            optimizer = optim.SGD(model.parameters(),lr = lr,momentum = momentum)
-            model.eval()
-            for epoch in tqdm(range(epochs)):
-                for batch in tqdm(DATA.all_training, leave = False):
-                    model.train()
-                    x,y = batch
-                    model.zero_grad()
-                     #sets gradients at 0 after each batch
-                    output = model(x)
-                    #calculate how wrong we are
-                    loss = criterion(output,y)
-                    loss.backward()#backward propagation
-                    optimizer.step()
-                model.eval()
-                actual, pred = validate_model(model,loss)
-                if epoch == epochs-1:
-                    print(classification_report(actual,pred))
+            actual, pred = train_pretrained_nn(lr=lr,optimizer=optim.SGD,net=model,epochs=epochs,lbl='ResNet18',\
+                            loss_f=F.nll_loss, momentum=momentum)
+            print(classification_report(actual,pred))
 
 
         elif option == '9':
