@@ -10,6 +10,7 @@ import pickle
 import random
 import NNclasses
 import wandb
+import platform
 import matplotlib.pyplot as plt
 import numpy as np
 import torch.optim as optim
@@ -107,7 +108,7 @@ if __name__ == '__main__':
     finished = False
     while not finished:
         option = input('\nHello. What would you like to do?\
-                    \n1: Select folders (Folder names as labels)\
+                    \n1: Make Training and Validation Data\
                     \n2: Test Vision Transformer model\
                     \n3: Generate spectograms\
                     \n4: Go through the Entire Dataset (BETA)\
@@ -118,11 +119,10 @@ if __name__ == '__main__':
                     \n9 Train and Test VGG16\n')
 
         if option == '1':
-            # This code here opens a file selection dialog
-            # try:
-            #     root = tk.Tk()
-            #     file_path = filedialog.askdirectory()
-            root = '/Volumes/Macintosh HD/Users/karmel/Desktop/Training/Humpback'
+            if platform.system()=='Darwin':#MAC
+                root = '/Volumes/Macintosh HD/Users/karmel/Desktop/Training/Humpback'
+            elif platform.system()=='Windows':
+                root = 'C://Users/Karmel 0481098535/Desktop/Humpback'
             DATA = nn_data(root, batch_size = 16)
             breakpoint()
 
