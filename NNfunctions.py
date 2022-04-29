@@ -6,8 +6,12 @@ import torch.nn.functional as F
 from tqdm import tqdm
 from sklearn.metrics import classification_report
 
+def extract_f1_score(dict):
+    for category, values in dict.items()[:-4]:
+        wandb.log({category: values['f1-score']})
+
 def train_pretrained_nn(DATA,lr=0.001,optimizer=optim.AdamW,net=None,epochs=10,lbl='',\
-                loss_f=F.nll_loss, momentum=None):
+                                                    loss_f=F.nll_loss, momentum=None):
     name = str(net)
     if len(str(net))>10:
         name = lbl
@@ -27,12 +31,12 @@ def train_pretrained_nn(DATA,lr=0.001,optimizer=optim.AdamW,net=None,epochs=10,l
             loss = loss_f(output,y)
             loss.backward()#backward propagation
             optimizer.step()
-        net.eval()
-        actual, pred = validate_model(net,loss)
-        if epoch == epochs-1:
-            return actual, pred
 
-def train_nn(DATA,lr=0.001,optimizer=optim.AdamW,net=None,epochs=10,lbl='',loss_f=F.nll_loss, momentum=None):
+        net.eval()
+        actual, pred = validate_model(DATA,net,loss,epoch==epochs)
+
+def train_nn(DATA,lr=0.001,optimizer=optim.AdamW,net=None,epochs=10,lbl='',\
+                                            loss_f=F.nll_loss, momentum=None):
     name = str(net)
     if len(str(net))>10:
         name = lbl
@@ -54,11 +58,10 @@ def train_nn(DATA,lr=0.001,optimizer=optim.AdamW,net=None,epochs=10,lbl='',loss_
             loss = loss_f(output,y)
             loss.backward()#backward propagation
             optimizer.step()
-        actual, pred = validate_model(DATA,net,loss)
-        if epoch == epochs-1:
-            return actual, pred
 
-def validate_model(DATA,net,loss):
+        actual, pred = validate_model(DATA,net,loss, epoch==epochs)
+
+def validate_model(DATA,net,loss,final_layer):
     with torch.no_grad():
         pred = []
         actual = []
@@ -82,4 +85,6 @@ def validate_model(DATA,net,loss):
         recall = output['weighted avg']['recall']
         print({'Loss': loss, 'Validation Accuracy': accuracy, 'Wgt Precision': precision, 'Wgt Recall': recall})
         wandb.log({'Loss': loss, 'Validation Accuracy': accuracy, 'Wgt Precision': precision, 'Wgt Recall': recall})
-        return actual,pred
+        if final_layer:
+            extract_f1_score(output)
+            print(classification_report(actual,pred))

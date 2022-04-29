@@ -71,11 +71,6 @@ if __name__ == '__main__':
 
         elif option == '3':
             print('Please select the folder you want to generate the spectograms from')
-            # try:
-            #     root = tk.Tk()
-            #     file_path = filedialog.askdirectory()
-            # except :
-            #     print('Tkinter is extremely crinj')
             file_path = '/Volumes/Macintosh HD/Users/karmel/Desktop/Results/All/'
             print(f'Grabbing files from {file_path}')
             all_labels_str = [folder for folder in os.listdir(file_path) if \
@@ -115,11 +110,9 @@ if __name__ == '__main__':
 
         elif option[0] == '6':
             actual, pred = train_nn(DATA=DATA,net = Net(), lr = 0.001)
-            print(classification_report(actual,pred))
 
         elif option == '7':
             actual, pred = train_nn(DATA=DATA,net = CNNet(), lr = 0.001)
-            print(classification_report(actual,pred))
 
         elif option == '8':
             model = models.resnet18()
@@ -134,18 +127,16 @@ if __name__ == '__main__':
             epochs=10
             actual, pred = train_pretrained_nn(DATA=DATA,lr=lr,optimizer=optim.SGD,net=model,epochs=epochs,lbl='ResNet18',\
                             loss_f=F.nll_loss, momentum=momentum)
-            print(classification_report(actual,pred))
 
 
         elif option == '9':
             model = models.vgg16()
-            lr = 0.0007
+            lr = 0.001
             momentum = 0.9
             epochs=10
             first_conv_layer = [nn.Conv2d(1, 3, kernel_size=3, stride=1, padding=1, dilation=1, groups=1, bias=True)]
             first_conv_layer.extend(list(model.features))
             model.features= nn.Sequential(*first_conv_layer )
             model.classifier[6].out_features = 23
-            actual, pred = train_pretrained_nn(lr=lr,optimizer=optim.SGD,net=model,epochs=epochs,lbl='VGG16',\
+            actual, pred = train_pretrained_nn(DATA=DATA,lr=lr,optimizer=optim.SGD,net=model,epochs=epochs,lbl='VGG16',\
                             loss_f=F.nll_loss, momentum=momentum)
-            print(classification_report(actual,pred))
