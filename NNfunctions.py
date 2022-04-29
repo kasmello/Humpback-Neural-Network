@@ -8,7 +8,7 @@ from sklearn.metrics import classification_report
 
 def extract_f1_score(dict):
     for category, values in dict.items()[:-4]:
-        wandb.log({category: values['f1-score']})
+        wandb.log({f'{category} F1-Score': values['f1-score']})
 
 def train_pretrained_nn(DATA,lr=0.001,optimizer=optim.AdamW,net=None,epochs=10,lbl='',\
                                                     loss_f=F.nll_loss, momentum=None):
@@ -33,7 +33,8 @@ def train_pretrained_nn(DATA,lr=0.001,optimizer=optim.AdamW,net=None,epochs=10,l
             optimizer.step()
 
         net.eval()
-        actual, pred = validate_model(DATA,net,loss,epoch==epochs)
+        final_layer = epoch==epochs-1
+        validate_model(DATA,net,loss,final_layer)
 
 def train_nn(DATA,lr=0.001,optimizer=optim.AdamW,net=None,epochs=10,lbl='',\
                                             loss_f=F.nll_loss, momentum=None):
@@ -58,8 +59,8 @@ def train_nn(DATA,lr=0.001,optimizer=optim.AdamW,net=None,epochs=10,lbl='',\
             loss = loss_f(output,y)
             loss.backward()#backward propagation
             optimizer.step()
-
-        actual, pred = validate_model(DATA,net,loss, epoch==epochs)
+        final_layer=epoch==epochs-1
+        validate_model(DATA,net,loss,final_layer)
 
 def validate_model(DATA,net,loss,final_layer):
     with torch.no_grad():
