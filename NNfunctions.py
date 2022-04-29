@@ -58,8 +58,6 @@ def train_nn(DATA,lr=0.001,optimizer=optim.AdamW,net=None,epochs=10,lbl='',loss_
         if epoch == epochs-1:
             return actual, pred
 
-
-
 def validate_model(DATA,net,loss):
     with torch.no_grad():
         pred = []
