@@ -6,71 +6,75 @@ import torch.nn.functional as F
 from tqdm import tqdm
 from sklearn.metrics import classification_report
 
+
 def extract_f1_score(dict):
     for category, values in dict.items()[:-4]:
         wandb.log({f'{category} F1-Score': values['f1-score']})
 
-def train_pretrained_nn(DATA,lr=0.001,optimizer=optim.AdamW,net=None,epochs=10,lbl='',\
-                                                    loss_f=F.nll_loss, momentum=None):
+
+def train_pretrained_nn(DATA, lr=0.001, optimizer=optim.AdamW, net=None, epochs=10, lbl='',
+                        loss_f=F.nll_loss, momentum=None):
     name = str(net)
-    if len(str(net))>10:
+    if len(str(net)) > 10:
         name = lbl
-    wandb.init(project=name, name=f'lr={lr}',entity="kasmello")
+    wandb.init(project=name, name=f'lr={lr}', entity="kasmello")
     if momentum:
-        optimizer = optimizer(net.parameters(),lr = lr,momentum = momentum)
+        optimizer = optimizer(net.parameters(), lr=lr, momentum=momentum)
     else:
-        optimizer = optimizer(net.parameters(),lr = lr) #adamw algorithm
+        optimizer = optimizer(net.parameters(), lr=lr)  # adamw algorithm
     for epoch in tqdm(range(epochs)):
-        for batch in tqdm(DATA.all_training, leave = False):
+        for batch in tqdm(DATA.all_training, leave=False):
             net.train()
-            x,y = batch
+            x, y = batch
             net.zero_grad()
-             #sets gradients at 0 after each batch
-            output = F.log_softmax(net(x),dim=1)
-            #calculate how wrong we are
-            loss = loss_f(output,y)
-            loss.backward()#backward propagation
+            # sets gradients at 0 after each batch
+            output = F.log_softmax(net(x), dim=1)
+            # calculate how wrong we are
+            loss = loss_f(output, y)
+            loss.backward()  # backward propagation
             optimizer.step()
 
         net.eval()
-        final_layer = epoch==epochs-1
-        validate_model(DATA,net,loss,final_layer)
+        final_layer = epoch == epochs - 1
+        validate_model(DATA, net, loss, final_layer)
 
-def train_nn(DATA,lr=0.001,optimizer=optim.AdamW,net=None,epochs=10,lbl='',\
-                                            loss_f=F.nll_loss, momentum=None):
+
+def train_nn(DATA, lr=0.001, optimizer=optim.AdamW, net=None, epochs=10, lbl='',
+             loss_f=F.nll_loss, momentum=None):
     name = str(net)
-    if len(str(net))>10:
+    if len(str(net)) > 10:
         name = lbl
-    wandb.init(project=name, name=f'lr={lr}',entity="kasmello")
+    wandb.init(project=name, name=f'lr={lr}', entity="kasmello")
     if momentum:
-        optimizer = optimizer(net.parameters(),lr = lr,momentum = momentum)
+        optimizer = optimizer(net.parameters(), lr=lr, momentum=momentum)
     else:
-        optimizer = optimizer(net.parameters(),lr = lr) #adamw algorithm
+        optimizer = optimizer(net.parameters(), lr=lr)  # adamw algorithm
     for epoch in tqdm(range(epochs)):
-        for batch in tqdm(DATA.all_training, leave = False):
-            x,y = batch
+        for batch in tqdm(DATA.all_training, leave=False):
+            x, y = batch
             net.zero_grad()
-             #sets gradients at 0 after each batch
-            if str(net)=='Net':
-                output = net(x.view(-1,224*224))
+            # sets gradients at 0 after each batch
+            if str(net) == 'Net':
+                output = net(x.view(-1, 224 * 224))
             else:
                 output = net(x)
-            #calculate how wrong we are
-            loss = loss_f(output,y)
-            loss.backward()#backward propagation
+            # calculate how wrong we are
+            loss = loss_f(output, y)
+            loss.backward()  # backward propagation
             optimizer.step()
-        final_layer=epoch==epochs-1
-        validate_model(DATA,net,loss,final_layer)
+        final_layer = epoch == epochs - 1
+        validate_model(DATA, net, loss, final_layer)
 
-def validate_model(DATA,net,loss,final_layer):
+
+def validate_model(DATA, net, loss, final_layer):
     with torch.no_grad():
         pred = []
         actual = []
 
         for batch_v in DATA.all_validation:
-            x,y = batch_v
-            if str(net)=='Net':
-                output = net(x.view(-1,224*224))
+            x, y = batch_v
+            if str(net) == 'Net':
+                output = net(x.view(-1, 224 * 224))
             else:
                 output = net(x)
 
@@ -80,12 +84,14 @@ def validate_model(DATA,net,loss,final_layer):
         pred = DATA.inverse_encode(pred)
         actual = DATA.inverse_encode(actual)
         print('\n\n')
-        output = classification_report(actual,pred, output_dict = True)
+        output = classification_report(actual, pred, output_dict=True)
         accuracy = output['accuracy']
         precision = output['weighted avg']['precision']
         recall = output['weighted avg']['recall']
-        print({'Loss': loss, 'Validation Accuracy': accuracy, 'Wgt Precision': precision, 'Wgt Recall': recall})
-        wandb.log({'Loss': loss, 'Validation Accuracy': accuracy, 'Wgt Precision': precision, 'Wgt Recall': recall})
+        print({'Loss': loss, 'Validation Accuracy': accuracy,
+              'Wgt Precision': precision, 'Wgt Recall': recall})
+        wandb.log({'Loss': loss, 'Validation Accuracy': accuracy,
+                  'Wgt Precision': precision, 'Wgt Recall': recall})
         if final_layer:
             extract_f1_score(output)
-            print(classification_report(actual,pred))
+            print(classification_report(actual, pred))

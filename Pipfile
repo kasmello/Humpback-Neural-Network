@@ -18,6 +18,7 @@ torch = "*"
 opencv-python = "*"
 argparse = "*"
 pyyaml = "*"
+vit-pytorch = "*"
 
 [dev-packages]
 
