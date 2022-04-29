@@ -50,7 +50,7 @@ class nn_data:
     def grab_dataset(self, batch_size):
         transform = transforms.Compose([
             transforms.Grayscale(num_output_channels=1),
-            transforms.RandAugment(),
+            # transforms.RandAugment(),
             transforms.ToTensor()
         ])
         train_folder = datasets.ImageFolder(self.train_path,transform=transform)
