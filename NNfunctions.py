@@ -8,8 +8,11 @@ from sklearn.metrics import classification_report
 
 
 def extract_f1_score(dict):
-    for category, values in dict.items()[:-4]:
-        wandb.log({f'{category} F1-Score': values['f1-score']})
+    for category, values in dict.items():
+        if category != 'accuracy':
+            wandb.log({f'{category} F1-Score': values['f1-score']})
+        else:
+            break
 
 
 def train_pretrained_nn(DATA, lr=0.001, optimizer=optim.AdamW, net=None, epochs=10, lbl='',
