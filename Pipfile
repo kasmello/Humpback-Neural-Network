@@ -17,6 +17,7 @@ torchvision = "*"
 torch = "*"
 opencv-python = "*"
 argparse = "*"
+pyyaml = "*"
 
 [dev-packages]
 
