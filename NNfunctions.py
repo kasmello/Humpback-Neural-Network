@@ -94,5 +94,5 @@ def validate_model(DATA, net, loss, final_layer):
         wandb.log({'Loss': loss, 'Validation Accuracy': accuracy,
                   'Wgt Precision': precision, 'Wgt Recall': recall})
         if final_layer:
-            extract_f1_score(output)
+            extract_f1_score(DATA, output)
             print(classification_report(actual, pred))
