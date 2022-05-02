@@ -12,6 +12,7 @@ import platform
 import numpy as np
 import torch.optim as optim
 import torch.nn as nn
+from vit_pytorch import ViT
 import torch.nn.functional as F
 import torchvision.models as models
 from sklearn.metrics import classification_report
@@ -24,10 +25,10 @@ if __name__ == '__main__':
     while not finished:
         option = input('\nHello. What would you like to do?\
                     \n1: Make Training and Validation Data\
-                    \n2: Test Vision Transformer model\
+                    \n2: Train and Test Vision Transformer model\
                     \n3: Generate spectograms\
                     \n4: Go through the Entire Dataset (BETA)\
-                    \n5: Train Vision Transformer\
+                    \n5: Idk\
                     \n6: Train and Test NN\
                     \n7: Train and Test CNN\
                     \n8: Train and Test Pretrained ResNet-18\
@@ -41,47 +42,41 @@ if __name__ == '__main__':
             DATA = nn_data(root, batch_size=16)
             breakpoint()
 
-        elif option == '1b':
-            with open('all_training.ml', 'rb') as file:
-                all_training = pickle.load(file)
-            with open('all_validation.ml', 'rb') as file:
-                all_validation = pickle.load(file)
-
         elif option == '2':
 
-            model = torch.load('model.pth')
-            model.eval()
-
-            cat = (np.array(Image.open('cat.png')) / 128) - 1
-            inp = torch.from_numpy(cat).permute(
-                2, 0, 1).unsqueeze(0).to(torch.float32)
-            logits = model(inp)
-            probs = torch.nn.functional.softmax(logits, dim=-1)
-
-            top_probs, top_ics = probs[0].topk(k)
-            # turn logits into probabilities
-
-            print('\nPREDICTING IMAGE 1\n')
-            for i, (ix_, prob_) in enumerate(zip(top_ics, top_probs)):
-                ix = ix_.item()
-                prob = prob_.item()
-                cls = imagenet_labels[ix].strip()
-                print(f"{i}: {cls:<45} --- {prob:.4f}")
+            v = ViT(
+                image_size=224,
+                patch_size=14,
+                num_classes=23,
+                dim=1024,
+                depth=6,
+                heads=16,
+                mlp_dim=2048,
+                dropout=0.1,
+                emb_dropout=0.1,
+                channels=1
+            )
+            lr = 0.01
+            momentum = 0.9
+            epochs = 10
+            actual, pred = train_pretrained_nn(DATA=DATA, lr=lr, optimizer=optim.SGD, net=v, epochs=epochs, lbl='ViT',
+                                               loss_f=F.nll_loss, momentum=momentum)
 
         elif option == '3':
-            print('Please select the folder you want to generate the spectograms from')
-            file_path = '/Volumes/Macintosh HD/Users/karmel/Desktop/Results/All/'
-            print(f'Grabbing files from {file_path}')
-            all_labels_str = [folder for folder in os.listdir(file_path) if
-                              os.path.isdir(os.path.join(file_path, folder))]  # list comprehension to add folders only
-
-            all_training_labels = []
-            for label in all_labels_str:
-                label_class = nn_label(file_path, label)
-                label_class.save_spectogram()
-                all_training_labels.append(label_class)
-                print('bit by bit...')
-            print('Done!')
+            # print('Please select the folder you want to generate the spectograms from')
+            # file_path = '/Volumes/Macintosh HD/Users/karmel/Desktop/Results/All/'
+            # print(f'Grabbing files from {file_path}')
+            # all_labels_str = [folder for folder in os.listdir(file_path) if
+            #                   os.path.isdir(os.path.join(file_path, folder))]  # list comprehension to add folders only
+            #
+            # all_training_labels = []
+            # for label in all_labels_str:
+            #     label_class = nn_label(file_path, label)
+            #     label_class.save_spectogram()
+            #     all_training_labels.append(label_class)
+            #     print('bit by bit...')
+            # print('Done!')
+            pass
         elif option == '4':
             # theoryyy
             example_file_path = '/Volumes/Macintosh HD/Users/karmel/Desktop/Results/braindead.wav'

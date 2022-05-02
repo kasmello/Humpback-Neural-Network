@@ -1,5 +1,6 @@
 import torch
 import wandb
+from time import time
 import torch.optim as optim
 import torch.nn as nn
 import torch.nn.functional as F
@@ -9,8 +10,7 @@ from sklearn.metrics import classification_report
 
 def extract_f1_score(DATA, dict):
     for index, category in DATA.label_dict.items():
-        wandb.log({f'{dict[category]} F1-Score': dict[category]['f1-score']})
-
+        wandb.log({f'{category} F1-Score': dict[category]['f1-score']})
 
 
 def train_pretrained_nn(DATA, lr=0.001, optimizer=optim.AdamW, net=None, epochs=10, lbl='',
@@ -65,6 +65,7 @@ def train_nn(DATA, lr=0.001, optimizer=optim.AdamW, net=None, epochs=10, lbl='',
             optimizer.step()
         final_layer = epoch == epochs - 1
         validate_model(DATA, net, loss, final_layer)
+
 
 
 def validate_model(DATA, net, loss, final_layer):
