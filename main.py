@@ -4,20 +4,10 @@ detect Humpback whales
 '''
 
 import os
-import cv2
-import torch
 import random
-import NNclasses
 import platform
 import numpy as np
-import torch.optim as optim
-import torch.nn as nn
-from vit_pytorch import ViT
-import torch.nn.functional as F
-import torchvision.models as models
-from sklearn.metrics import classification_report
-from NNclasses import nn_data, Net, CNNet
-from NNfunctions import train_pretrained_nn, train_nn, validate_model
+from NNfunctions import *
 
 DATA = None
 if __name__ == '__main__':
@@ -43,24 +33,12 @@ if __name__ == '__main__':
             breakpoint()
 
         elif option == '2':
-
-            v = ViT(
-                image_size=224,
-                patch_size=14,
-                num_classes=23,
-                dim=1024,
-                depth=6,
-                heads=16,
-                mlp_dim=2048,
-                dropout=0.1,
-                emb_dropout=0.1,
-                channels=1
-            )
-            lr = 0.01
-            momentum = 0.9
-            epochs = 10
-            actual, pred = train_pretrained_nn(DATA=DATA, lr=lr, optimizer=optim.SGD, net=v, epochs=epochs, lbl='ViT',
-                                               loss_f=F.nll_loss, momentum=momentum)
+            lr=0.01
+            weight_decay=0
+            epochs=5
+            name='vit'
+            wandb.init(project=name, name=f'{datetime.now().strftime("%D %H:%M")} lr={lr} wd={weight_decay}', entity="kasmello")
+            run_model(DATA,name,lr,weight_decay, epochs)
 
         elif option == '3':
             # print('Please select the folder you want to generate the spectograms from')
@@ -98,43 +76,42 @@ if __name__ == '__main__':
         elif option == '5':
 
             # Training
-            vision_transformer = NNclasses.VisionTransformer()
-            for epoch in range(2):
-                for item in all_training_labels:
-                    label = item.label
-                    for png in item.pngs:
-                        input = png
+            # vision_transformer = NNclasses.VisionTransformer()
+            # for epoch in range(2):
+            #     for item in all_training_labels:
+            #         label = item.label
+            #         for png in item.pngs:
+            #             input = png
+            pass
 
         elif option[0] == '6':
-            actual, pred = train_nn(DATA=DATA, net=Net(), lr=0.001)
+            lr=0.001
+            weight_decay=0
+            epochs=5
+            name='net'
+            wandb.init(project=name, name=f'{datetime.now().strftime("%D %H:%M")} lr={lr} wd={weight_decay}', entity="kasmello")
+            run_model(DATA,name,lr,weight_decay, epochs)
 
         elif option == '7':
-            actual, pred = train_nn(DATA=DATA, net=CNNet(), lr=0.001)
+            lr=0.001
+            weight_decay=0
+            epochs=5
+            name='cnnet'
+            wandb.init(project=name, name=f'{datetime.now().strftime("%D %H:%M")} lr={lr} wd={weight_decay}', entity="kasmello")
+            run_model(DATA,name,lr,weight_decay, epochs)
 
         elif option == '8':
-            model = models.resnet18()
-            device = torch.device("cuda" if torch.cuda.is_available()
-                                  else "cpu")
-            model = model.to(device)
-            model.conv1 = nn.Conv2d(
-                1, 64, kernel_size=7, stride=2, padding=3, bias=False)
-            num_ftrs = model.fc.in_features
-            model.fc = nn.Linear(num_ftrs, 23)
-            lr = 0.01
-            momentum = 0.9
-            epochs = 10
-            actual, pred = train_pretrained_nn(DATA=DATA, lr=lr, optimizer=optim.SGD, net=model, epochs=epochs, lbl='ResNet18',
-                                               loss_f=F.nll_loss, momentum=momentum)
+            lr=0.01
+            weight_decay=0
+            epochs=5
+            name='resnet18'
+            wandb.init(project=name, name=f'{datetime.now().strftime("%D %H:%M")} lr={lr} wd={weight_decay}', entity="kasmello")
+            run_model(DATA,name,lr,weight_decay, epochs)
 
         elif option == '9':
-            model = models.vgg16()
-            lr = 0.001
-            momentum = 0.9
-            epochs = 10
-            first_conv_layer = [nn.Conv2d(
-                1, 3, kernel_size=3, stride=1, padding=1, dilation=1, groups=1, bias=True)]
-            first_conv_layer.extend(list(model.features))
-            model.features = nn.Sequential(*first_conv_layer)
-            model.classifier[6].out_features = 23
-            actual, pred = train_pretrained_nn(DATA=DATA, lr=lr, optimizer=optim.SGD, net=model, epochs=epochs, lbl='VGG16',
-                                               loss_f=F.nll_loss, momentum=momentum)
+            lr=0.001
+            weight_decay=0
+            epochs=5
+            name='vgg16'
+            wandb.init(project=name, name=f'{datetime.now().strftime("%D %H:%M")} lr={lr} wd={weight_decay}', entity="kasmello")
+            run_model(DATA,name,lr,weight_decay, epochs)
