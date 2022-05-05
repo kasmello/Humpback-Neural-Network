@@ -112,7 +112,7 @@ def run_model(DATA,net,lr,weight_decay, epochs):
     elif net == 'cnnet':
         train_nn(DATA=DATA, net=CNNet(), lr=lr, weight_decay=weight_decay, epochs=epochs)
     elif net == 'resnet18':
-        model = models.resnet18()
+        model = models.resnet18(pretrained=True)
         device = torch.device("cuda" if torch.cuda.is_available()
                                 else "cpu")
         model = model.to(device)
@@ -124,7 +124,7 @@ def run_model(DATA,net,lr,weight_decay, epochs):
         train_pretrained_nn(DATA=DATA, lr=lr, weight_decay=weight_decay, epochs=epochs, optimizer=optim.SGD, net=model, lbl='ResNet18',
                                             loss_f=F.nll_loss, momentum=momentum)
     elif net == 'vgg16':
-        model = models.vgg16()
+        model = models.vgg16(pretrained=True)
         momentum = 0.9
         first_conv_layer = [nn.Conv2d(
             1, 3, kernel_size=3, stride=1, padding=1, dilation=1, groups=1, bias=True)]
@@ -136,11 +136,11 @@ def run_model(DATA,net,lr,weight_decay, epochs):
     elif net == 'vit':
         v = ViT(
             image_size=224,
-            patch_size=14,
+            patch_size=16,
             num_classes=23,
             dim=1024,
             depth=6,
-            heads=16,
+            heads=8,
             mlp_dim=2048,
             dropout=0.1,
             emb_dropout=0.1,
