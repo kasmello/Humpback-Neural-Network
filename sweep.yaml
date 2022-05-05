@@ -1,0 +1,13 @@
+project: Model Sweep
+program: sweep.py
+method: grid
+entity: kasmello
+parameters:
+  lr:
+    values: [0.01, 0.001]
+  weight_decay:
+    values: [0,0.3]
+  architecture:
+    values: ['net','cnnet','resnet18','vgg16','vit']
+  epochs:
+    value: 5
