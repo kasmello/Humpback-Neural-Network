@@ -1,7 +1,6 @@
 import torch
 import wandb
 from time import time
-from datetime import datetime
 import torch.optim as optim
 import torch.nn as nn
 import torch.nn.functional as F
@@ -13,7 +12,7 @@ from vit_pytorch import ViT
 import torch.nn.functional as F
 import torchvision.models as models
 from sklearn.metrics import classification_report
-from NNclasses import nn_data, Net, CNNet
+from NNclasses import Net, CNNet
 
 
 def extract_f1_score(DATA, dict):
