@@ -1,0 +1,15 @@
+project: Model Sweep
+program: sweep.py
+method: random
+entity: kasmello
+parameters:
+  lr:
+    distribution: 'uniform',
+    min: 0.00001,
+    max: 0.001
+  weight_decay:
+    value: 0
+  architecture:
+    values: ['resnet18']
+  epochs:
+    value: 5
