@@ -1,0 +1,4 @@
+wandb agent kasmello/Overfit/yjr1srdg
+wandb agent kasmello/Overfit/q9wigv79
+wandb agent kasmello/Overfit/igrs5fre
+wandb agent kasmello/Overfit/etw0mn9r
