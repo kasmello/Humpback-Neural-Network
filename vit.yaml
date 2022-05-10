@@ -12,6 +12,6 @@ parameters:
   momentum:
     value: 1
   architecture:
-    values: ['resnet18']
+    values: ['vit']
   epochs:
     value: 10

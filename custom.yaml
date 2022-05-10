@@ -1,15 +1,17 @@
-project: Model Sweep
+project: Overfit
 program: sweep.py
 method: random
 entity: kasmello
 parameters:
   lr:
-    distribution: 'uniform',
-    min: 0.00001,
+    distribution: 'uniform'
+    min: 0.00001
     max: 0.001
-  weight_decay:
+  wd:
     value: 0
   architecture:
     values: ['net','cnnet']
+  momentum:
+    value: 1
   epochs:
-    value: 5
+    value: 10
