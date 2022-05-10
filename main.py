@@ -4,12 +4,25 @@ detect Humpback whales
 '''
 
 import os
-import random
 import platform
-import numpy as np
+from datetime import datetime
 from NNfunctions import *
+from NNclasses import nn_data
 
 DATA = None
+
+def start_model(name,lr,wd,momentum,epochs):
+    name_str = f'{datetime.now().strftime("%D %H:%M")}'
+    if lr:
+        name_str += f' lr={lr}'
+    if wd:
+        name_str += f' wd={wd}'
+    if momentum:
+        name_str += f' momentum={momentum}'
+    wandb.init(project=name, name=name_str, entity="kasmello")
+    run_model(DATA,name,lr,wd, epochs,momentum)
+
+
 if __name__ == '__main__':
     finished = False
     while not finished:
@@ -34,11 +47,11 @@ if __name__ == '__main__':
 
         elif option == '2':
             lr=0.01
-            weight_decay=0
+            wd=0
             epochs=5
+            momentum=1
             name='vit'
-            wandb.init(project=name, name=f'{datetime.now().strftime("%D %H:%M")} lr={lr} wd={weight_decay}', entity="kasmello")
-            run_model(DATA,name,lr,weight_decay, epochs)
+            start_model(name,lr,wd,momentum,epochs)
 
         elif option == '3':
             # print('Please select the folder you want to generate the spectograms from')
@@ -86,32 +99,30 @@ if __name__ == '__main__':
 
         elif option[0] == '6':
             lr=0.001
-            weight_decay=0
+            wd=0
             epochs=5
             name='net'
-            wandb.init(project=name, name=f'{datetime.now().strftime("%D %H:%M")} lr={lr} wd={weight_decay}', entity="kasmello")
-            run_model(DATA,name,lr,weight_decay, epochs)
+            start_model(name,lr,wd,None,epochs)
 
         elif option == '7':
             lr=0.001
-            weight_decay=0
+            wd=0
             epochs=5
             name='cnnet'
-            wandb.init(project=name, name=f'{datetime.now().strftime("%D %H:%M")} lr={lr} wd={weight_decay}', entity="kasmello")
-            run_model(DATA,name,lr,weight_decay, epochs)
+            start_model(name,lr,wd,None,epochs)
 
         elif option == '8':
             lr=0.01
-            weight_decay=0
+            wd=0
             epochs=5
+            momentum=1
             name='resnet18'
-            wandb.init(project=name, name=f'{datetime.now().strftime("%D %H:%M")} lr={lr} wd={weight_decay}', entity="kasmello")
-            run_model(DATA,name,lr,weight_decay, epochs)
+            start_model(name,lr,wd,momentum,epochs)
 
         elif option == '9':
             lr=0.001
-            weight_decay=0
+            wd=0
             epochs=5
+            momentum=1
             name='vgg16'
-            wandb.init(project=name, name=f'{datetime.now().strftime("%D %H:%M")} lr={lr} wd={weight_decay}', entity="kasmello")
-            run_model(DATA,name,lr,weight_decay, epochs)
+            start_model(name,lr,wd,momentum,epochs)

@@ -11,7 +11,8 @@ if __name__=='__main__':
     elif platform.system() == 'Windows':
         root = 'C://Users/Karmel 0481098535/Desktop/Humpback'
     DATA = nn_data(root, batch_size = 16)
-    wandb.init(project="Model Sweep",entity="kasmello")
+    wandb.init(project="Overfit Attempt Sweep",entity="kasmello")
     config=wandb.config
-    run_model(DATA=DATA, net=config.architecture, lr=config.lr, weight_decay=config.weight_decay, epochs=config.epochs)
+    run_model(DATA=DATA, net=config.architecture, lr=config.lr, wd=config.wd, epochs=config.epochs, \
+                        momentum=config.momentum)
     
