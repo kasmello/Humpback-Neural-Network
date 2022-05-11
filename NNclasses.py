@@ -99,11 +99,11 @@ class nn_data:
             try:
                 os.mkdir(os.path.join(root,'Training',dir))
             except FileExistsError:
-                print('folder exists: carry on')
+                print('Training folder exists')
             try:
                 os.mkdir(os.path.join(root,'Validation',dir))
             except FileExistsError:
-                print('folder exists: carry on')
+                print('Validation folder exists')
             label_dir = os.path.join(root,dir)
             all_files = [file for root, dir, file in os.walk(label_dir)]
             all_files = all_files[0]
@@ -111,15 +111,16 @@ class nn_data:
             random.seed(30)
             samp_length = int(len(all_files)*0.25)
             samp = random.sample(all_files,samp_length)
-            for file in tqdm(all_files):
-                if file in samp:
-                    old_dir = os.path.join(root,dir,file)
-                    new_dir = os.path.join(root,'Validation',dir,file)
-                    shutil.move(old_dir,new_dir)
-                else:
-                    old_dir = os.path.join(root,dir,file)
-                    new_dir = os.path.join(root,'Training',dir,file)
-                    shutil.move(old_dir,new_dir)
+            if len(all_files)!= 0:
+                for file in tqdm(all_files):
+                    if file in samp:
+                        old_dir = os.path.join(root,dir,file)
+                        new_dir = os.path.join(root,'Validation',dir,file)
+                        shutil.move(old_dir,new_dir)
+                    else:
+                        old_dir = os.path.join(root,dir,file)
+                        new_dir = os.path.join(root,'Training',dir,file)
+                        shutil.move(old_dir,new_dir)
         return os.path.join(root, 'Training'), os.path.join(root, 'Validation')
 
 class CNNet(nn.Module):
