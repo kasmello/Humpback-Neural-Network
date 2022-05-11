@@ -47,6 +47,7 @@ def train_pretrained_nn(DATA, lr=0.001, optimizer=optim.AdamW, net=None, epochs=
 
         net.eval()
         final_layer = epoch == epochs - 1
+        check_training_accuracy(DATA, net)
         validate_model(DATA, net, loss, final_layer)
 
 
