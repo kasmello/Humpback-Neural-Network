@@ -46,10 +46,10 @@ if __name__ == '__main__':
             breakpoint()
 
         elif option == '2':
-            lr=0.01
+            lr=0.0005
             wd=0
             epochs=5
-            momentum=1
+            momentum=0.9
             name='vit'
             start_model(name,lr,wd,momentum,epochs)
 
@@ -120,7 +120,7 @@ if __name__ == '__main__':
             start_model(name,lr,wd,momentum,epochs)
 
         elif option == '9':
-            lr=0.001
+            lr=0.01
             wd=0
             epochs=5
             momentum=1
