@@ -61,7 +61,8 @@ class nn_data:
 
         validation_folder = datasets.ImageFolder(self.validation_path,transform=transform)
         all_validation = torch.utils.data.DataLoader(validation_folder,
-                                              batch_size=batch_size,
+                                              batch_size=50,
+                                              shuffle=True,
                                               num_workers=3)
         return all_training, all_validation, train_folder.class_to_idx
 
@@ -99,11 +100,11 @@ class nn_data:
             try:
                 os.mkdir(os.path.join(root,'Training',dir))
             except FileExistsError:
-                print('Training folder exists')
+                pass
             try:
                 os.mkdir(os.path.join(root,'Validation',dir))
             except FileExistsError:
-                print('Validation folder exists')
+                pass
             label_dir = os.path.join(root,dir)
             all_files = [file for root, dir, file in os.walk(label_dir)]
             all_files = all_files[0]
