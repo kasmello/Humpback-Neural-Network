@@ -112,17 +112,17 @@ if __name__ == '__main__':
             start_model(name,lr,wd,None,epochs)
 
         elif option == '8':
-            lr=0.01
+            lr=0.005
             wd=0
             epochs=5
-            momentum=1
+            momentum=0.9
             name='resnet18'
             start_model(name,lr,wd,momentum,epochs)
 
         elif option == '9':
-            lr=0.01
+            lr=0.005
             wd=0
             epochs=5
-            momentum=1
+            momentum=0.9
             name='vgg16'
             start_model(name,lr,wd,momentum,epochs)

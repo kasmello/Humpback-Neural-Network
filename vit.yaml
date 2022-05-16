@@ -5,12 +5,12 @@ entity: kasmello
 parameters:
   lr:
     distribution: 'uniform'
-    min: 0.001
-    max: 0.03
+    min: 0.0001
+    max: 0.001
   wd:
     value: 0
   momentum:
-    value: 1
+    value: 0.9
   architecture:
     values: ['vit']
   epochs:

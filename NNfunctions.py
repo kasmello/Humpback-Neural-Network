@@ -146,7 +146,9 @@ def validate_model(DATA, net, loss, final_layer):
         cm = confusion_matrix(actual,pred)
         disp = ConfusionMatrixDisplay(confusion_matrix=cm)
         disp.plot()
-        plt.show()
+        plt.show(block=False)
+        plt.pause(5)
+        plt.close()
         
 
 def run_model(DATA,net,lr,wd,epochs,momentum):
