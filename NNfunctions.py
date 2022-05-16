@@ -3,6 +3,7 @@ import wandb
 import ssl
 from time import time
 import timm
+import platform
 import torch.optim as optim
 import torch.nn as nn
 import torch.nn.functional as F
@@ -32,7 +33,6 @@ def log_images(images,pred,actual):
     wandb.log({'Image Table': table})
 
           
-    
 def train_pretrained_nn(DATA, lr=0.001, optimizer=optim.AdamW, net=None, epochs=5, lbl='',
                         loss_f=F.nll_loss, momentum=None, wd=0):
     name = str(net)
@@ -152,19 +152,23 @@ def validate_model(DATA, net, loss, final_layer):
         
 
 def run_model(DATA,net,lr,wd,epochs,momentum):
+    device = torch.device("fml" if platform.system()=='Windows'
+                                else "cpu")
     if net == 'net':
-        train_nn(DATA=DATA, net=Net(), lr=lr, wd=wd, epochs=epochs)
+        model = Net()
+        model = model.to(device)
+        train_nn(DATA=DATA, net=model, lr=lr, wd=wd, epochs=epochs)
     elif net == 'cnnet':
-        train_nn(DATA=DATA, net=CNNet(), lr=lr, wd=wd, epochs=epochs)
+        model = CNNet()
+        model = model.to(device)
+        train_nn(DATA=DATA, net=model, lr=lr, wd=wd, epochs=epochs)
     elif net == 'resnet18':
         model = models.resnet18(pretrained=True)
-        device = torch.device("cuda" if torch.cuda.is_available()
-                                else "cpu")
-        model = model.to(device)
         model.conv1 = nn.Conv2d(
             1, 64, kernel_size=7, stride=2, padding=3, bias=False)
         num_ftrs = model.fc.in_features
         model.fc = nn.Linear(num_ftrs, 23)
+        model = model.to(device)
         train_pretrained_nn(DATA=DATA, lr=lr, wd=wd, epochs=epochs, optimizer=optim.SGD, net=model, lbl='ResNet18',
                                             loss_f=F.nll_loss, momentum=momentum)
     elif net == 'vgg16':
@@ -174,10 +178,11 @@ def run_model(DATA,net,lr,wd,epochs,momentum):
         first_conv_layer.extend(list(model.features))
         model.features = nn.Sequential(*first_conv_layer)
         model.classifier[6].out_features = 23
+        model = model.to(device)
         train_pretrained_nn(DATA=DATA, lr=lr, wd=wd, epochs=epochs, optimizer=optim.SGD, net=model, lbl='VGG16',
                                             loss_f=F.nll_loss, momentum=momentum)
     elif net == 'vit':
-        v = timm.create_model('vit_base_patch16_224',pretrained=True, num_classes=23, in_chans=1)
+        model = timm.create_model('vit_base_patch16_224',pretrained=True, num_classes=23, in_chans=1)
         # v = ViT(
         #     image_size=224,
         #     patch_size=16,
@@ -190,5 +195,6 @@ def run_model(DATA,net,lr,wd,epochs,momentum):
         #     emb_dropout=0.1,
         #     channels=1
         # )
-        train_pretrained_nn(DATA=DATA, lr=lr, wd=wd, epochs=epochs, optimizer=optim.SGD, net=v, lbl='ViT',
+        model = model.to(device)
+        train_pretrained_nn(DATA=DATA, lr=lr, wd=wd, epochs=epochs, optimizer=optim.SGD, net=model, lbl='ViT',
                                             loss_f=F.nll_loss, momentum=momentum)
