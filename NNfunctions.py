@@ -2,18 +2,19 @@ import torch
 import wandb
 import ssl
 from time import time
+from tqdm import tqdm
 import timm
 import platform
+import transformclasses
 import torch.optim as optim
 import torch.nn as nn
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
-from tqdm import tqdm
 import torch.optim as optim
 import torch.nn as nn
-from vit_pytorch import ViT
-import torch.nn.functional as F
 import torchvision.models as models
+import torch.optim.lr_scheduler as lsr
+from pydub import AudioSegment 
 from sklearn.metrics import classification_report, confusion_matrix, ConfusionMatrixDisplay
 from NNclasses import Net, CNNet
 
@@ -34,7 +35,7 @@ def log_images(images,pred,actual):
 
           
 def train_pretrained_nn(DATA, lr=0.001, optimizer=optim.AdamW, net=None, epochs=5, lbl='',
-                        loss_f=F.nll_loss, momentum=None, wd=0):
+                        loss_f=F.nll_loss, momentum=None, wd=0,lr_decay=None):
     name = str(net)
     if len(str(net)) > 10:
         name = lbl
@@ -42,6 +43,7 @@ def train_pretrained_nn(DATA, lr=0.001, optimizer=optim.AdamW, net=None, epochs=
         optimizer = optimizer(net.parameters(), lr=lr, momentum=momentum, weight_decay=wd)
     else:
         optimizer = optimizer(net.parameters(), lr=lr, weight_decay=wd)  # adamw algorithm
+    scheduler = lr_decay(optimizer,1)
     for epoch in tqdm(range(epochs)):
         for batch in tqdm(DATA.all_training, leave=False):
             net.train()
@@ -52,7 +54,9 @@ def train_pretrained_nn(DATA, lr=0.001, optimizer=optim.AdamW, net=None, epochs=
             # calculate how wrong we are
             loss = loss_f(output, y)
             loss.backward()  # backward propagation
+            torch.nn.utils.clip_grad_norm_(net.parameters(), 1)
             optimizer.step()
+        scheduler.step()
 
         net.eval()
         final_layer = epoch == epochs - 1
@@ -61,7 +65,7 @@ def train_pretrained_nn(DATA, lr=0.001, optimizer=optim.AdamW, net=None, epochs=
 
 
 def train_nn(DATA, lr=0.001, optimizer=optim.AdamW, net=None, epochs=5, lbl='',
-             loss_f=F.nll_loss, momentum=None, wd=0):
+             loss_f=F.nll_loss, momentum=None, wd=0,lr_decay=None):
     name = str(net)
     if len(str(net)) > 10:
         name = lbl
@@ -69,6 +73,7 @@ def train_nn(DATA, lr=0.001, optimizer=optim.AdamW, net=None, epochs=5, lbl='',
         optimizer = optimizer(net.parameters(), lr=lr, momentum=momentum, weight_decay=wd)
     else:
         optimizer = optimizer(net.parameters(), lr=lr,weight_decay=wd)  # adamw algorithm
+    scheduler = lr_decay(optimizer,1)
     for epoch in tqdm(range(epochs)):
         for batch in tqdm(DATA.all_training, leave=False):
             x, y = batch
@@ -81,7 +86,9 @@ def train_nn(DATA, lr=0.001, optimizer=optim.AdamW, net=None, epochs=5, lbl='',
             # calculate how wrong we are
             loss = loss_f(output, y)
             loss.backward()  # backward propagation
+            torch.nn.utils.clip_grad_norm_(net.parameters(), 1)
             optimizer.step()
+        scheduler.step()
         final_layer = epoch == epochs - 1
         check_training_accuracy(DATA, net)
         validate_model(DATA, net, loss, final_layer)
@@ -149,19 +156,43 @@ def validate_model(DATA, net, loss, final_layer):
         plt.show(block=False)
         plt.pause(5)
         plt.close()
+
+def run_through_audio():
+    example_file_path = '/Volumes/Macintosh HD/Users/karmel/Desktop/Results/braindead.wav'
+    example_track = AudioSegment.from_wav(example_file_path)
+    len_of_database = 10000
+    size_of_chunks = 2.75  # in seconds
+    for t in range(len_of_database - size_of_chunks + 1):
+        start = t * 1000
+        end = (t + size_of_chunks) * 1000
+        print(f'START: {start} END: {end}')
+        segment = example_track[start:end]
+        segment.export(
+            '/Volumes/Macintosh HD/Users/karmel/Desktop/Results/_temp.wav', format='wav')
+        wav_to_spectogram(
+            '/Volumes/Macintosh HD/Users/karmel/Desktop/Results/_temp.wav', save=False)
+        os.remove(
+            '/Volumes/Macintosh HD/Users/karmel/Desktop/Results/_temp.wav')
         
 
-def run_model(DATA,net,lr,wd,epochs,momentum):
-    device = torch.device("fml" if platform.system()=='Windows'
+def run_model(DATA,net,lr,wd,epochs,momentum, optimm='sgd', lr_decay=None):
+    if optimm == 'sgd':
+        optimm=optim.SGD
+    elif optimm == 'adamw':
+        optimm = optim.AdamW
+        momentum=None
+    device = torch.device("dml" if platform.system()=='Windows'
                                 else "cpu")
+    if lr_decay=='cosineAN':
+        lr_decay = lsr.CosineAnnealingLR
     if net == 'net':
         model = Net()
         model = model.to(device)
-        train_nn(DATA=DATA, net=model, lr=lr, wd=wd, epochs=epochs)
+        train_nn(DATA=DATA, net=model, lr=lr, wd=wd, epochs=epochs, optimizer=optimm, momentum=momentum,lr_decay=lr_decay)
     elif net == 'cnnet':
         model = CNNet()
         model = model.to(device)
-        train_nn(DATA=DATA, net=model, lr=lr, wd=wd, epochs=epochs)
+        train_nn(DATA=DATA, net=model, lr=lr, wd=wd, epochs=epochs, optimizer=optimm, momentum=momentum,lr_decay=lr_decay)
     elif net == 'resnet18':
         model = models.resnet18(pretrained=True)
         model.conv1 = nn.Conv2d(
@@ -169,8 +200,8 @@ def run_model(DATA,net,lr,wd,epochs,momentum):
         num_ftrs = model.fc.in_features
         model.fc = nn.Linear(num_ftrs, 23)
         model = model.to(device)
-        train_pretrained_nn(DATA=DATA, lr=lr, wd=wd, epochs=epochs, optimizer=optim.SGD, net=model, lbl='ResNet18',
-                                            loss_f=F.nll_loss, momentum=momentum)
+        train_pretrained_nn(DATA=DATA, lr=lr, wd=wd, epochs=epochs, optimizer=optimm, net=model, lbl='ResNet18',
+                                            loss_f=F.nll_loss, momentum=momentum,lr_decay=lr_decay)
     elif net == 'vgg16':
         model = models.vgg16(pretrained=True)
         first_conv_layer = [nn.Conv2d(
@@ -179,22 +210,13 @@ def run_model(DATA,net,lr,wd,epochs,momentum):
         model.features = nn.Sequential(*first_conv_layer)
         model.classifier[6].out_features = 23
         model = model.to(device)
-        train_pretrained_nn(DATA=DATA, lr=lr, wd=wd, epochs=epochs, optimizer=optim.SGD, net=model, lbl='VGG16',
-                                            loss_f=F.nll_loss, momentum=momentum)
+        train_pretrained_nn(DATA=DATA, lr=lr, wd=wd, epochs=epochs, optimizer=optimm, net=model, lbl='VGG16',
+                                            loss_f=F.nll_loss, momentum=momentum,lr_decay=lr_decay)
     elif net == 'vit':
         model = timm.create_model('vit_base_patch16_224',pretrained=True, num_classes=23, in_chans=1)
-        # v = ViT(
-        #     image_size=224,
-        #     patch_size=16,
-        #     num_classes=23,
-        #     dim=1024,
-        #     depth=6,
-        #     heads=16,
-        #     mlp_dim=2048,
-        #     dropout=0.1,
-        #     emb_dropout=0.1,
-        #     channels=1
-        # )
         model = model.to(device)
-        train_pretrained_nn(DATA=DATA, lr=lr, wd=wd, epochs=epochs, optimizer=optim.SGD, net=model, lbl='ViT',
-                                            loss_f=F.nll_loss, momentum=momentum)
+        train_pretrained_nn(DATA=DATA, lr=lr, wd=wd, epochs=epochs, optimizer=optimm, net=model, lbl='ViT',
+                                            loss_f=F.nll_loss, momentum=momentum,lr_decay=lr_decay)
+
+
+

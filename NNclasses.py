@@ -5,7 +5,6 @@ this is where I will write all my classes :)
 import os
 import torch
 import torchvision
-import glob
 import random
 import shutil
 import torch.nn as nn
@@ -13,6 +12,7 @@ import torch.nn.functional as F
 import torchvision.models as models
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
 from tqdm import tqdm
 from math import ceil
 from torchvision import transforms, datasets
@@ -21,6 +21,7 @@ from scipy import signal
 from scipy import ndimage
 from scipy.io import wavfile
 from pydub import AudioSegment
+from transformclasses import FreqMask, TimeMask, TimeWarp
 
 def wav_to_spectogram(item, save = True):
     fs, x = wavfile.read(item)
@@ -66,6 +67,20 @@ class nn_data:
                                               num_workers=3)
         return all_training, all_validation, train_folder.class_to_idx
 
+    def test_transform(self):
+        transform = transforms.Compose([
+                transforms.Grayscale(num_output_channels=1),
+                transforms.ToTensor(),
+                TimeWarp(size=224, p=1, W=20),
+                FreqMask(p=1),
+                TimeMask(p=1)
+                
+            ])
+        img = Image.open(os.path.join(self.train_path, 'LM', 'Selection3-31.png'))
+        example = transform(img)
+        plt.imshow(example[0])
+        plt.show()
+        plt.close()
 
     def pad_all_spectograms(self,pad_ms=2200):
         for item in self.wavs:
