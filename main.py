@@ -11,7 +11,7 @@ from NNclasses import nn_data
 
 DATA = None
 
-def start_model(name,lr,wd,momentum,epochs):
+def start_model(name,lr,wd,momentum,epochs, optimm, lr_decay):
     name_str = f'{datetime.now().strftime("%D %H:%M")}'
     if lr:
         name_str += f' lr={lr}'
@@ -19,8 +19,12 @@ def start_model(name,lr,wd,momentum,epochs):
         name_str += f' wd={wd}'
     if momentum:
         name_str += f' momentum={momentum}'
+    if optimm:
+        name_str += f' optimm={optimm}'
+    if lr_decay:
+        name_str += f' lr_decay={lr_decay}'
     wandb.init(project=name, name=name_str, entity="kasmello")
-    run_model(DATA,name,lr,wd, epochs,momentum)
+    run_model(DATA,name,lr,wd, epochs,momentum, optimm, lr_decay)
 
 
 if __name__ == '__main__':
@@ -29,7 +33,7 @@ if __name__ == '__main__':
         option = input('\nHello. What would you like to do?\
                     \n1: Make Training and Validation Data\
                     \n2: Train and Test Vision Transformer model\
-                    \n3: Generate spectograms\
+                    \n3: Test how the transform looks on example data\
                     \n4: Go through the Entire Dataset (BETA)\
                     \n5: Idk\
                     \n6: Train and Test NN\
@@ -47,44 +51,24 @@ if __name__ == '__main__':
 
         elif option == '2':
             lr=0.0005
-            wd=0
+            wd=0.03
             epochs=5
             momentum=0.9
             name='vit'
-            start_model(name,lr,wd,momentum,epochs)
+            optimm='sgd'
+            lr_decay = 'cosineAN'
+            start_model(name,lr,wd,momentum,epochs, optimm, lr_decay)
 
         elif option == '3':
-            # print('Please select the folder you want to generate the spectograms from')
-            # file_path = '/Volumes/Macintosh HD/Users/karmel/Desktop/Results/All/'
-            # print(f'Grabbing files from {file_path}')
-            # all_labels_str = [folder for folder in os.listdir(file_path) if
-            #                   os.path.isdir(os.path.join(file_path, folder))]  # list comprehension to add folders only
-            #
-            # all_training_labels = []
-            # for label in all_labels_str:
-            #     label_class = nn_label(file_path, label)
-            #     label_class.save_spectogram()
-            #     all_training_labels.append(label_class)
-            #     print('bit by bit...')
-            # print('Done!')
-            pass
+
+            DATA.test_transform()
         elif option == '4':
-            # theoryyy
-            example_file_path = '/Volumes/Macintosh HD/Users/karmel/Desktop/Results/braindead.wav'
-            example_track = AudioSegment.from_wav(example_file_path)
-            len_of_database = 10000
-            size_of_chunks = 2  # in seconds
-            for t in range(len_of_database - size_of_chunks + 1):
-                start = t * 1000
-                end = (t + size_of_chunks) * 1000
-                print(f'START: {start} END: {end}')
-                segment = example_track[start:end]
-                segment.export(
-                    '/Volumes/Macintosh HD/Users/karmel/Desktop/Results/_temp.wav', format='wav')
-                wav_to_spectogram(
-                    '/Volumes/Macintosh HD/Users/karmel/Desktop/Results/_temp.wav', save=False)
-                os.remove(
-                    '/Volumes/Macintosh HD/Users/karmel/Desktop/Results/_temp.wav')
+            test_folder = '/Volumes/Macintosh HD/Users/karmel/Desktop/Training/Humpback/Testing'
+            try:
+                os.makedirs(test_folder)
+            except FileExistsError:
+                pass
+            run_through_audio()
 
         elif option == '5':
 
@@ -99,30 +83,40 @@ if __name__ == '__main__':
 
         elif option[0] == '6':
             lr=0.001
-            wd=0
+            wd=0.03
             epochs=5
+            momentum=0.9
             name='net'
-            start_model(name,lr,wd,None,epochs)
+            optimm='adamw'
+            lr_decay = 'cosineAN'
+            start_model(name,lr,wd,momentum,epochs, optimm, lr_decay)
 
         elif option == '7':
             lr=0.001
-            wd=0
+            wd=0.03
             epochs=5
+            momentum=0.9
             name='cnnet'
-            start_model(name,lr,wd,None,epochs)
+            optimm='sgd'
+            lr_decay = 'cosineAN'
+            start_model(name,lr,wd,momentum,epochs, optimm, lr_decay)
 
         elif option == '8':
-            lr=0.005
-            wd=0
+            lr=0.0005
+            wd=0.03
             epochs=5
             momentum=0.9
             name='resnet18'
-            start_model(name,lr,wd,momentum,epochs)
+            optimm='sgd'
+            lr_decay = 'cosineAN'
+            start_model(name,lr,wd,momentum,epochs, optimm, lr_decay)
 
         elif option == '9':
-            lr=0.005
-            wd=0
+            lr=0.0005
+            wd=0.03
             epochs=5
             momentum=0.9
             name='vgg16'
-            start_model(name,lr,wd,momentum,epochs)
+            optimm='sgd'
+            lr_decay = 'cosineAN'
+            start_model(name,lr,wd,momentum,epochs, optimm, lr_decay)
