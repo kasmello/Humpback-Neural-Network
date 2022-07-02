@@ -14,5 +14,5 @@ if __name__=='__main__':
     wandb.init(project="Overfit Attempt Sweep",entity="kasmello")
     config=wandb.config
     run_model(DATA=DATA, net=config.architecture, lr=config.lr, wd=config.wd, epochs=config.epochs, \
-                        momentum=config.momentum)
+                        momentum=config.momentum, lr_decay = config.lr_decay)
     
