@@ -5,10 +5,12 @@ entity: kasmello
 parameters:
   lr:
     distribution: 'uniform'
-    min: 0.0001
+    min: 0.00005
     max: 0.001
+  lr_decay:
+    calues: ['none','cosineAN']
   wd:
-    value: 0
+    value: 0.03
   momentum:
     value: 0.9
   architecture:
