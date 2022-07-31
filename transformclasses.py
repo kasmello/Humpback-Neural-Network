@@ -1,23 +1,12 @@
-import math
 import numbers
 import random
 import warnings
 import torch
 import numpy as np
 import torch.nn as nn
-import torch.nn.functional as F
 from collections.abc import Sequence
-from typing import Tuple, List, Optional
-
-
-
-try:
-    import accimage
-except ImportError:
-    accimage = None
-
-
-# from torch.nn.utils import _log_api_usage_once
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning) 
 
 # __all__ just exports the below things if the whole module is called xD
 __all__ = [ 
@@ -64,10 +53,8 @@ class TimeWarp(nn.Module):
         y = height // 2
         horizontal_line = img[0][y]
         assert len(horizontal_line) == length
-        
         point_to_warp = horizontal_line[random.randrange(self.W, length - self.W)]
         assert isinstance(point_to_warp, torch.Tensor)
-
         dist_to_warp = random.randrange(-self.W, self.W)
         src_pts, dest_pts = torch.tensor([[[y, point_to_warp]]]), torch.tensor([[[y, point_to_warp + dist_to_warp]]])
         warped_spectro, dense_flows = sparse_image_warp(img, src_pts, dest_pts)
@@ -77,7 +64,7 @@ class TimeWarp(nn.Module):
         return f"{self.__class__.__name__}(size={self.size})(p={self.p})(W={self.W})"
 
 class FreqMask(nn.Module):
-    def __init__(self, size=224, p = 0.2, F=15, masks=1):
+    def __init__(self, size=224, p = 0.2, F=30, masks=5):
         super().__init__()
         self.size = _setup_size(size, error_msg="Please provide only two dimensions (h, w) for size.")
         self.p = p
@@ -106,7 +93,7 @@ class FreqMask(nn.Module):
         return f"{self.__class__.__name__}(size={self.size})(p={self.p})(F={self.F})(Masks={self.masks})"
 
 class TimeMask(nn.Module):
-    def __init__(self, size=224, p=0.2, T=15, masks=1):
+    def __init__(self, size=224, p=0.2, T=50, masks=1):
         super().__init__()
         self.size = _setup_size(size, error_msg="Please provide only two dimensions (h, w) for size.")
         self.p = p
@@ -117,7 +104,7 @@ class TimeMask(nn.Module):
         if random.random() > self.p:
             return img
         cloned = img.clone()
-        len_spectro = self.size[0]
+        len_spectro = self.size[1]
 
         for i in range(0, self.masks):
             t = random.randrange(0, self.T)
