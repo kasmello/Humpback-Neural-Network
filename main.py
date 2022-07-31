@@ -4,12 +4,28 @@ detect Humpback whales
 '''
 
 import os
+import pathlib
+import requests
 import platform
 from datetime import datetime
 from NNfunctions import *
 from NNclasses import nn_data
 
 DATA = None
+MODEL_PATH = None
+LABEL_DICT_PATH = None
+
+
+def find_root():
+    """
+    simple function to return string of data folder
+    """
+    if platform.system() == 'Darwin':  # MAC
+        return '/Volumes/Macintosh HD/Users/karmel/Desktop/Training/Humpback'
+    elif platform.system() == 'Windows':
+        return 'C://Users/Karmel 0481098535/Desktop/Humpback'
+
+ROOT = find_root()
 
 def start_model(name,lr,wd,momentum,epochs, optimm, lr_decay):
     name_str = f'{datetime.now().strftime("%D %H:%M")}'
@@ -23,8 +39,37 @@ def start_model(name,lr,wd,momentum,epochs, optimm, lr_decay):
         name_str += f' optimm={optimm}'
     if lr_decay:
         name_str += f' lr_decay={lr_decay}'
+    try:
+        requests.get('https://www.google.com')
+    except requests.ConnectionError:
+        print('Cannot connect to the internet, disabling online mode for WANDB')
+        os.environ["WANDB_MODE"]='dryrun'
     wandb.init(project=name, name=name_str, entity="kasmello")
     run_model(DATA,name,lr,wd, epochs,momentum, optimm, lr_decay)
+
+def find_file(extension, custom_string):
+    """
+    find file with specific extension
+    input:
+        extension - string of extension (e.g. csv)
+        custom_string - string to print if no files with the extension are found
+    output:
+        str of file path
+    """
+    all_models = pathlib.Path.cwd().glob(f'*.{extension}')
+    ask_list = []
+    for index, model_path in enumerate(all_models):
+        model_path_str = model_path.as_posix()
+        name = model_path_str.split('/')[-1]
+        ask_list.append([f'{index}: {name}',model_path_str])
+    if len(ask_list) == 0: 
+        print(custom_string)
+        raise FileNotFoundError(custom_string)
+    ask_str = ''
+    for item in ask_list:
+        ask_str += item[0]+'\n'
+    index_for_model = input(f'Type number to select a file: 0 to {len(ask_list)-1}\n{ask_str}')
+    return ask_list[int(index_for_model)][1]
 
 
 if __name__ == '__main__':
@@ -42,14 +87,10 @@ if __name__ == '__main__':
                     \n9 Train and Test VGG16\n')
 
         if option == '1':
-            if platform.system() == 'Darwin':  # MAC
-                root = '/Volumes/Macintosh HD/Users/karmel/Desktop/Training/Humpback'
-            elif platform.system() == 'Windows':
-                root = 'C://Users/Karmel 0481098535/Desktop/Humpback'
-            DATA = nn_data(root, batch_size=16)
-            breakpoint()
+            DATA = nn_data(ROOT, batch_size=16)
 
         elif option == '2':
+            #use https://arxiv.org/pdf/2106.10270.pdf as reference
             lr=0.0005
             wd=0.03
             epochs=5
@@ -62,13 +103,16 @@ if __name__ == '__main__':
         elif option == '3':
 
             DATA.test_transform()
+
         elif option == '4':
-            test_folder = '/Volumes/Macintosh HD/Users/karmel/Desktop/Training/Humpback/Testing'
             try:
-                os.makedirs(test_folder)
-            except FileExistsError:
-                pass
-            run_through_audio()
+                if not MODEL_PATH:
+                    MODEL_PATH = find_file('nn', 'You have no models constructed - make some models before doing this')
+                if not LABEL_DICT_PATH:
+                    LABEL_DICT_PATH = find_file('csv', 'You have no label dictionaries - make some before doing this')
+            except FileNotFoundError as e:
+                print(e)
+            run_through_audio(MODEL_PATH, LABEL_DICT_PATH)
 
         elif option == '5':
 
@@ -92,7 +136,7 @@ if __name__ == '__main__':
             start_model(name,lr,wd,momentum,epochs, optimm, lr_decay)
 
         elif option == '7':
-            lr=0.001
+            lr=0.1
             wd=0.03
             epochs=5
             momentum=0.9
