@@ -1,11 +1,17 @@
 import torch
 import wandb
 import ssl
-from time import time
-from tqdm import tqdm
+import pathlib
+import numpy as np
+import csv
+import math
 import timm
 import platform
-import transformclasses
+from time import time
+from tqdm import tqdm
+from scipy.io import wavfile
+from collections import deque
+from skimage.transform import resize
 import torch.optim as optim
 import torch.nn as nn
 import torch.nn.functional as F
@@ -13,6 +19,7 @@ import matplotlib.pyplot as plt
 import torch.optim as optim
 import torch.nn as nn
 import torchvision.models as models
+from torchvision import transforms
 import torch.optim.lr_scheduler as lsr
 from pydub import AudioSegment 
 from sklearn.metrics import classification_report, confusion_matrix, ConfusionMatrixDisplay
@@ -33,36 +40,31 @@ def log_images(images,pred,actual):
     table = wandb.Table(data=data, columns = ["Predicted", "Actual",'Spectogram'])
     wandb.log({'Image Table': table})
 
-          
-def train_pretrained_nn(DATA, lr=0.001, optimizer=optim.AdamW, net=None, epochs=5, lbl='',
-                        loss_f=F.nll_loss, momentum=None, wd=0,lr_decay=None):
-    name = str(net)
-    if len(str(net)) > 10:
-        name = lbl
-    if momentum:
-        optimizer = optimizer(net.parameters(), lr=lr, momentum=momentum, weight_decay=wd)
+
+def pad_out_row(row, segment_dur):
+    dur = float(row['End Time (s)'])-float(row['Begin Time (s)'])
+    if dur <= segment_dur:
+        padding = (segment_dur - dur) / 2
+        if float(row['File Offset (s)']) < padding:
+            row['Begin Time (s)'] = 0
+        else:
+            row['Begin Time (s)'] = float(row['Begin Time (s)']) - math.floor(padding)
     else:
-        optimizer = optimizer(net.parameters(), lr=lr, weight_decay=wd)  # adamw algorithm
-    scheduler = lr_decay(optimizer,1)
-    for epoch in tqdm(range(epochs)):
-        for batch in tqdm(DATA.all_training, leave=False):
-            net.train()
-            x, y = batch
-            net.zero_grad()
-            # sets gradients at 0 after each batch
-            output = F.log_softmax(net(x), dim=1)
-            # calculate how wrong we are
-            loss = loss_f(output, y)
-            loss.backward()  # backward propagation
-            torch.nn.utils.clip_grad_norm_(net.parameters(), 1)
-            optimizer.step()
-        scheduler.step()
+        tocut  = math.ceil((dur - segment_dur)/ 2)
+        row['Begin Time (s)'] = float(row['Begin Time (s)']) + tocut;
+    row['End Time (s)'] = float(row['Begin Time (s)']) + segment_dur
+    return row
+        
 
-        net.eval()
-        final_layer = epoch == epochs - 1
-        check_training_accuracy(DATA, net)
-        validate_model(DATA, net, loss, final_layer)
-
+def read_in_csv_times(file):
+    with open(file, 'r') as csv_file:
+        csv_dict = csv.DictReader(csv_file,delimiter=',')
+        for d in csv_dict:
+            d['Selection'] = d.pop('\ufeffSelection')
+        dict_list = []
+        for i, row in enumerate(csv_dict):
+            dict_list.append(pad_out_row(row, 3.2))
+        return dict_list
 
 def train_nn(DATA, lr=0.001, optimizer=optim.AdamW, net=None, epochs=5, lbl='',
              loss_f=F.nll_loss, momentum=None, wd=0,lr_decay=None):
@@ -76,22 +78,22 @@ def train_nn(DATA, lr=0.001, optimizer=optim.AdamW, net=None, epochs=5, lbl='',
     scheduler = lr_decay(optimizer,1)
     for epoch in tqdm(range(epochs)):
         for batch in tqdm(DATA.all_training, leave=False):
+            net.train()
             x, y = batch
             net.zero_grad()
             # sets gradients at 0 after each batch
-            if str(net) == 'Net':
-                output = net(x.view(-1, 224 * 224))
-            else:
-                output = net(x)
+            output = F.log_softmax(net(x), dim=1)
             # calculate how wrong we are
             loss = loss_f(output, y)
             loss.backward()  # backward propagation
             torch.nn.utils.clip_grad_norm_(net.parameters(), 1)
             optimizer.step()
+        net.eval()
         scheduler.step()
         final_layer = epoch == epochs - 1
         check_training_accuracy(DATA, net)
         validate_model(DATA, net, loss, final_layer)
+    torch.save(net.state_dict(), f'{name}.nn')
 
 
 def predict(data,net, num_batches=999999999):
@@ -102,11 +104,7 @@ def predict(data,net, num_batches=999999999):
             predicted = []
             label = []
             x, y = batch_v
-            if str(net) == 'Net':
-                output = net(x.view(-1, 224 * 224))
-            else:
-                output = net(x)
-
+            output = F.log_softmax(net(x), dim=1)
             for idx, e in enumerate(output):
                 predicted.append(torch.argmax(e))
                 label.append(y[idx])
@@ -157,42 +155,127 @@ def validate_model(DATA, net, loss, final_layer):
         plt.pause(5)
         plt.close()
 
-def run_through_audio():
-    example_file_path = '/Volumes/Macintosh HD/Users/karmel/Desktop/Results/braindead.wav'
-    example_track = AudioSegment.from_wav(example_file_path)
-    len_of_database = 10000
-    size_of_chunks = 2.75  # in seconds
-    for t in range(len_of_database - size_of_chunks + 1):
-        start = t * 1000
-        end = (t + size_of_chunks) * 1000
-        print(f'START: {start} END: {end}')
-        segment = example_track[start:end]
-        segment.export(
-            '/Volumes/Macintosh HD/Users/karmel/Desktop/Results/_temp.wav', format='wav')
-        wav_to_spectogram(
-            '/Volumes/Macintosh HD/Users/karmel/Desktop/Results/_temp.wav', save=False)
-        os.remove(
-            '/Volumes/Macintosh HD/Users/karmel/Desktop/Results/_temp.wav')
+def wav_to_spectogram(item, save = True):
+    fs, x = wavfile.read(item)
+    Pxx, freqs, bins, im = plt.specgram(x, Fs=fs,NFFT=1024)
+    log_Pxx = 10*np.log10(np.flipud(Pxx))
+    log_Pxx = resize(log_Pxx, (224,224),anti_aliasing=False)
+    max_box = np.max(log_Pxx)
+    if max_box < 0:
+        max_box=0
+    
+    for i, row in enumerate(log_Pxx):
+        for j, item in enumerate(row):
+            if log_Pxx[i][j] < 0:
+                log_Pxx[i][j] = 0
+            if log_Pxx[i][j] > max_box-5:
+                log_Pxx[i][j] = max_box - 5
+            elif log_Pxx[i][j] < max_box-20:
+                # log_Pxx[i][j] = max_box-20
+                # print(log_Pxx[i][j], max_box-20) 
+                pass
+
+    min_value = np.min(log_Pxx)
+    max_value = np.max(log_Pxx)
+    for i, row in enumerate(log_Pxx):
+        for j, item in enumerate(row):
+            log_Pxx[i][j] = (item - min_value)/max_value
+
+    # plt.pcolormesh(bins, freqs, 10*np.log10(Pxx))
+    plt.imshow(log_Pxx,cmap='gray')
+    plt.axis('off')
+    plt.show(block=False)
+    plt.pause(0.1)
+    plt.close()
+    if save:
+        plt.savefig(f'{item[:-4]}.png',bbox_inches=0)
+        print('saved!')
+
+    return transforms.ToTensor()(log_Pxx)
+
+def load_all_selection_tables():
+    """
+    simple function to return location of all selection tables
+    """
+    file_dir =  pathlib.Path('/Volumes/Karmel TestSets/Selection Tables/').glob('*.csv')
+    return [item.as_posix() for item in file_dir]
+
+def load_all_sounds(file):
+    """
+    simple function to return localtion of all sounds
+    input:
+        file - str of location of selection table - this is used to find the sounds
+    """
+    file_name = str(file).split('/')[-1]
+    sounds_dir = pathlib.Path('/Volumes/Karmel TestSets/').glob(f'{file_name[0:5]}*/wavfiles/*.wav')
+    return [sound.as_posix() for sound in sounds_dir]
+
+def run_through_audio(model_path, dict_path):
+    model = Net()
+    model.load_state_dict(torch.load(model_path))
+    index_dict = {}
+    with open(dict_path,'r') as file:
+        reader = csv.DictReader(file)
+        for row in reader:
+            index_dict[int(row['Code'])] = row['Label']
+
+    all_files = load_all_selection_tables()
+    for file in all_files:
+        all_sounds = load_all_sounds(file)
+        dict_list = read_in_csv_times(file)
+        i = 0
+        for sound in all_sounds:
+            wav_file = AudioSegment.from_wav(sound)
+            len_of_track = len(wav_file)
+            size_of_chunks = int(3.2 * 1000)  # in seconds
+            sounds_for_this_file = deque()
+            for t in range(0,len_of_track - size_of_chunks,100):
+                start = t
+                end = (t + size_of_chunks)
+                if i < len(dict_list) and dict_list[i]['Begin Path'] == sound:
+                    if  dict_list[i]['Begin Time (s)'] >= start/1000:
+                        sounds_for_this_file.appendleft(dict_list[i])
+                        i += 1
+                        print(f"STARTED: {dict_list[i]['Begin Path']} {dict_list[i]['Selection']}")
+                    elif sounds_for_this_file[0]['End Time (s)'] <= end/1000:
+                        popped = sounds_for_this_file.pop()
+                        print(f"ENDED: {popped[i]['Begin Path']} {popped[i]['Selection']}")
+                        
+                print(f'START: {start} END: {end}')
+                segment = wav_file[start:end]
+                temp_file = pathlib.Path('/Volumes/Macintosh HD/Users/karmel/Desktop/Results/_temp.wav')
+                segment.export(
+                    temp_file.as_posix(), format='wav')
+                array_to_predict = wav_to_spectogram(
+                    temp_file.as_posix(), save=False)
+                output = F.log_softmax(model(array_to_predict.float()),dim=1)
+                print(f'PREDICTION: {index_dict[torch.argmax(output).item()]}')
+                temp_file.unlink()
         
 
 def run_model(DATA,net,lr,wd,epochs,momentum, optimm='sgd', lr_decay=None):
     if optimm == 'sgd':
         optimm=optim.SGD
+
     elif optimm == 'adamw':
         optimm = optim.AdamW
         momentum=None
+
     device = torch.device("dml" if platform.system()=='Windows'
                                 else "cpu")
     if lr_decay=='cosineAN':
         lr_decay = lsr.CosineAnnealingLR
+
     if net == 'net':
         model = Net()
         model = model.to(device)
+
         train_nn(DATA=DATA, net=model, lr=lr, wd=wd, epochs=epochs, optimizer=optimm, momentum=momentum,lr_decay=lr_decay)
     elif net == 'cnnet':
         model = CNNet()
         model = model.to(device)
         train_nn(DATA=DATA, net=model, lr=lr, wd=wd, epochs=epochs, optimizer=optimm, momentum=momentum,lr_decay=lr_decay)
+
     elif net == 'resnet18':
         model = models.resnet18(pretrained=True)
         model.conv1 = nn.Conv2d(
@@ -200,7 +283,7 @@ def run_model(DATA,net,lr,wd,epochs,momentum, optimm='sgd', lr_decay=None):
         num_ftrs = model.fc.in_features
         model.fc = nn.Linear(num_ftrs, 23)
         model = model.to(device)
-        train_pretrained_nn(DATA=DATA, lr=lr, wd=wd, epochs=epochs, optimizer=optimm, net=model, lbl='ResNet18',
+        train_nn(DATA=DATA, lr=lr, wd=wd, epochs=epochs, optimizer=optimm, net=model, lbl='ResNet18',
                                             loss_f=F.nll_loss, momentum=momentum,lr_decay=lr_decay)
     elif net == 'vgg16':
         model = models.vgg16(pretrained=True)
@@ -210,12 +293,12 @@ def run_model(DATA,net,lr,wd,epochs,momentum, optimm='sgd', lr_decay=None):
         model.features = nn.Sequential(*first_conv_layer)
         model.classifier[6].out_features = 23
         model = model.to(device)
-        train_pretrained_nn(DATA=DATA, lr=lr, wd=wd, epochs=epochs, optimizer=optimm, net=model, lbl='VGG16',
+        train_nn(DATA=DATA, lr=lr, wd=wd, epochs=epochs, optimizer=optimm, net=model, lbl='VGG16',
                                             loss_f=F.nll_loss, momentum=momentum,lr_decay=lr_decay)
     elif net == 'vit':
         model = timm.create_model('vit_base_patch16_224',pretrained=True, num_classes=23, in_chans=1)
         model = model.to(device)
-        train_pretrained_nn(DATA=DATA, lr=lr, wd=wd, epochs=epochs, optimizer=optimm, net=model, lbl='ViT',
+        train_nn(DATA=DATA, lr=lr, wd=wd, epochs=epochs, optimizer=optimm, net=model, lbl='ViT',
                                             loss_f=F.nll_loss, momentum=momentum,lr_decay=lr_decay)
 
 

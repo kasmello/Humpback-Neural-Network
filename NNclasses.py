@@ -1,47 +1,41 @@
 '''
-this is where I will write all my classes :)
+this is where the class containing tensor data/training functions is coded
 '''
 
 import os
 import torch
-import torchvision
 import random
 import shutil
-import torch.nn as nn
 import torch.nn.functional as F
+import torch.nn as nn
 import torchvision.models as models
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 from tqdm import tqdm
 from math import ceil
+from datetime import datetime
 from torchvision import transforms, datasets
 from PIL import Image, ImageDraw
-from scipy import signal
-from scipy import ndimage
-from scipy.io import wavfile
 from pydub import AudioSegment
 from transformclasses import FreqMask, TimeMask, TimeWarp
-
-def wav_to_spectogram(item, save = True):
-    fs, x = wavfile.read(item)
-    Pxx, freqs, bins, im = plt.specgram(x, Fs=fs,NFFT=1024)
-    # plt.pcolormesh(bins, freqs, 10*np.log10(Pxx))
-    plt.imshow(10*np.log10(Pxx), cmap='gray_r')
-    plt.axis('off')
-    plt.show()
-    if save:
-        plt.savefig(f'{item[:-4]}.png',bbox_inches=0)
-        print('saved!')
-
+# from spec_augment_pytorch import spec_augment #give credits where
 class nn_data:
 
     def __init__(self, root, batch_size):
-        self.all_labels = self.make_folders(root)
+        self.all_labels = nn_data.make_folders(root)
         self.all_labels.sort()
         self.train_path, self.validation_path = self.stratify_sample(root)
         self.all_training, self.all_validation, self.label_dict = self.grab_dataset(batch_size)
         self.label_dict = {v: k for k, v in self.label_dict.items()}
+        self.save_label_dict()
+
+    def save_label_dict(self):
+        curr_datetime = datetime.now()
+        with open(f'{curr_datetime}_index_to_label.csv','w') as file:
+            file.write('Code,Label\n')
+            for key, item in self.label_dict.items():
+                file.write(f'{key}, {item}\n')
 
 
     def inverse_encode(self, llist):
@@ -51,8 +45,10 @@ class nn_data:
     def grab_dataset(self, batch_size):
         transform = transforms.Compose([
             transforms.Grayscale(num_output_channels=1),
-            # transforms.RandAugment(),
-            transforms.ToTensor()
+            transforms.ToTensor(),
+            TimeWarp(p=0.3,W=20),
+            FreqMask(p=0.3, F=50),
+            TimeMask(p=0.3, T=30),
         ])
         train_folder = datasets.ImageFolder(self.train_path,transform=transform)
         all_training = torch.utils.data.DataLoader(train_folder,
@@ -71,9 +67,9 @@ class nn_data:
         transform = transforms.Compose([
                 transforms.Grayscale(num_output_channels=1),
                 transforms.ToTensor(),
-                TimeWarp(size=224, p=1, W=20),
-                FreqMask(p=1),
-                TimeMask(p=1)
+                TimeWarp(p=0.3, W=20),
+                FreqMask(p=0.3, F=50),
+                TimeMask(p=0.3, T=30)
                 
             ])
         img = Image.open(os.path.join(self.train_path, 'LM', 'Selection3-31.png'))
@@ -94,7 +90,8 @@ class nn_data:
                 padded = silence1 + audio + silence2  # Adding silence after the audio
                 padded.export(item, format='wav')
 
-    def make_folders(self, root):
+    @staticmethod
+    def make_folders(root):
         all_dir = [dir for root, dir, file in os.walk(root)]
 
         all_dir = all_dir[0]
@@ -169,7 +166,7 @@ class CNNet(nn.Module):
         x = x.view(-1,self._to_linear)
         x = F.relu(self.fc1(x))
         x = self.fc2(x)
-        return F.log_softmax(x,dim=1)
+        return x
 
 
 class Net(nn.Module):
@@ -184,9 +181,9 @@ class Net(nn.Module):
         return 'Net'
 
     def forward(self,x):
-        x = F.relu(self.fc1(x)) #F.relu is an activation function
+        x = F.relu(self.fc1(x.view(-1, 224 * 224))) #F.relu is an activation function
         x = F.relu(self.fc2(x))
         x = F.relu(self.fc3(x))
         x = self.fc4(x)
-        return F.log_softmax(x,dim=1)#probability distribution
+        return x
 
