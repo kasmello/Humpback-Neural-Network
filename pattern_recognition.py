@@ -17,7 +17,7 @@ class pattern_analyis:
             'selection_file': selection_file,
             'sound_file': sound_file}
         self.array.append(dict)
-    
+
     def write_to_file(self, name):
         if len(self.array) == 0:
             print('nothing to save so far!')
@@ -43,74 +43,26 @@ class pattern_analyis:
                 dictreader = csv.DictReader(csvfile)
                 for row in dictreader:
                     pass
-
     @staticmethod
-    def encode(stream):
-        """
-        Encode the input stream using a hard-coded window size
-        """
-        window = ""     # Buffer of last MAX_WINDOW_SIZE symbols
-        s = ""          # Suffix of stream to be coded
-        n = 0           # Index into stream
+    def encode(input_string):
+        i = 0
+        window_size = 15
         pattern_dict = {}
-        while n < len(stream):
-            x = stream[n]
-            
-            if (window + s).find(s + x) < 0:
-                # Suffix extended by x could not described by previously seen symbols.
-                if s == "":
-                    # No previously seen substring so code x and add it to window
-                    code_symbol(x)
-                    window = pattern_analysis.grow(window, x)
+        while i < len(input_string):
+            logged = False
+            j = i + 1
+            while not logged:
+                cur_window = input_string[i:j]
+                if cur_window not in pattern_dict.keys():
+                    pattern_dict[cur_window] = len(pattern_dict)
+                    logged = True
+                    i = j+1
+                elif j <= len(input_string):
+                    j += 1
                 else:
-                    # Find number of symbols back that s starts
-                    i = pattern_analysislookback(window, s)
-                    pattern_analysiscode_pointer(i,s) 
-                    window = pattern_analysisgrow(window, s) 
-
-                    # Reset suffix and push back last symbol
-                    s = ""
-                    n -= 1
-            else:
-                # Append the last symbol to the search suffix 
-                s += x
-            
-            # Increment the stream index
-            n += 1
-
-            # Stream finished, flush buffer
-            if s != "":
-                i = pattern_analysislookback(window,s) 
-                pattern_analysiscode_pointer(i,s)
-
-    @staticmethod
-    def code_symbol(x):
-        """Write a single symbol out"""
-        return f'(0,{x})'
-
-    @staticmethod
-    def code_pointer(i,s):
-        """Write a pointer out"""
-        return f'(1,{str(i)},{str(len(s))})'
-
-    ###################################################################################
-    # Window management
-
-    # Hard-coded maximum window size
-    @staticmethod
-    def lookback(window, s):
-        """Find the lookback index for the suffix s in the given window"""
-        return len(window) - (window + s).find(s)
-
-    @staticmethod
-    def grow(window, x):
-        """Update a window by adding x and keeping only MAX_WINDOW most recent symbols"""
-        window += x
-        if len(window) > 5:
-            window = window[-5:]   # Keep MAX_WINDOW last symbols
-
-        return window 
-
+                    i = j
+                    logged=True
+        print(pattern_dict)
     #look at this for SW ziv https://gist.github.com/mreid/6968667
 
 if __name__=='__main__':
