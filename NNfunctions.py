@@ -12,6 +12,7 @@ from tqdm import tqdm
 from scipy.io import wavfile
 from collections import deque
 from skimage.transform import resize
+from pattern_recognition import pattern_analyis
 import torch.optim as optim
 import torch.nn as nn
 import torch.nn.functional as F
@@ -158,6 +159,7 @@ def validate_model(DATA, net, loss, final_layer):
 def wav_to_spectogram(item, save = True):
     fs, x = wavfile.read(item)
     Pxx, freqs, bins, im = plt.specgram(x, Fs=fs,NFFT=1024)
+    Pxx = Pxx[(freqs >= 50) & (freqs <= 3000)]
     log_Pxx = 10*np.log10(np.flipud(Pxx))
     log_Pxx = resize(log_Pxx, (224,224),anti_aliasing=False)
     max_box = np.max(log_Pxx)
@@ -210,10 +212,24 @@ def load_all_sounds(file):
     sounds_dir = pathlib.Path('/Volumes/Karmel TestSets/').glob(f'{file_name[0:5]}*/wavfiles/*.wav')
     return [sound.as_posix() for sound in sounds_dir]
 
+def get_model_from_name(model_name):
+    if model_name=='Net':
+        return Net()
+    elif model_name=='CNNet2':
+        return CNNet()
+    elif model_name=='resnet18':
+        return models.resnet18(pretrained=True)
+    elif model_name=='vgg16':
+        return models.vgg16(pretrained=True)
+    elif model_name=='vit':
+        return timm.create_model('vit_base_patch16_224',pretrained=True, num_classes=23, in_chans=1)
+
 def run_through_audio(model_path, dict_path):
-    model = Net()
+    model_name = model_path.split('/')[-1][:-3]
+    model = get_model_from_name(model_name)
     model.load_state_dict(torch.load(model_path))
     index_dict = {}
+    pa = pattern_analyis()
     with open(dict_path,'r') as file:
         reader = csv.DictReader(file)
         for row in reader:
@@ -227,7 +243,7 @@ def run_through_audio(model_path, dict_path):
         for sound in all_sounds:
             wav_file = AudioSegment.from_wav(sound)
             len_of_track = len(wav_file)
-            size_of_chunks = int(3.2 * 1000)  # in seconds
+            size_of_chunks = int(2.7 * 1000)  # in seconds
             sounds_for_this_file = deque()
             for t in range(0,len_of_track - size_of_chunks,100):
                 start = t
@@ -249,7 +265,9 @@ def run_through_audio(model_path, dict_path):
                 array_to_predict = wav_to_spectogram(
                     temp_file.as_posix(), save=False)
                 output = F.log_softmax(model(array_to_predict.float()),dim=1)
-                print(f'PREDICTION: {index_dict[torch.argmax(output).item()]}')
+                prediction = index_dict[torch.argmax(output).item()]
+                print(f'PREDICTION: {prediction}')
+                pa.add_prediction(prediction, start, end, file, sound)
                 temp_file.unlink()
         
 

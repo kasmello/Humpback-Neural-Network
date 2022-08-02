@@ -106,10 +106,8 @@ if __name__ == '__main__':
 
         elif option == '4':
             try:
-                if not MODEL_PATH:
-                    MODEL_PATH = find_file('nn', 'You have no models constructed - make some models before doing this')
-                if not LABEL_DICT_PATH:
-                    LABEL_DICT_PATH = find_file('csv', 'You have no label dictionaries - make some before doing this')
+                MODEL_PATH = find_file('nn', 'You have no models constructed - make some models before doing this')
+                LABEL_DICT_PATH = find_file('csv', 'You have no label dictionaries - make some before doing this')
             except FileNotFoundError as e:
                 print(e)
             run_through_audio(MODEL_PATH, LABEL_DICT_PATH)
