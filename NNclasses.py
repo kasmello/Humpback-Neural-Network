@@ -1,5 +1,5 @@
 '''
-this is where the class containing tensor data/training functions is coded
+this is where the class containing tensor data/training functions is coded!
 '''
 
 import os
