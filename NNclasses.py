@@ -31,7 +31,7 @@ class nn_data:
         self.save_label_dict()
 
     def save_label_dict(self):
-        curr_datetime = datetime.now()
+        curr_datetime = datetime.now().isoformat(timespec='hours')
         with open(f'{curr_datetime}_index_to_label.csv','w') as file:
             file.write('Code,Label\n')
             for key, item in self.label_dict.items():

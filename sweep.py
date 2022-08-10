@@ -1,7 +1,7 @@
 if __name__=='__main__':
 
     import wandb
-    from NNfunctions import run_model
+    from NNtrainingfunctions import run_model
     from NNclasses import nn_data
     import platform
 

@@ -9,6 +9,7 @@ import requests
 import platform
 from datetime import datetime
 from NNfunctions import *
+from NNtrainingfunctions import *
 from NNclasses import nn_data
 
 DATA = None

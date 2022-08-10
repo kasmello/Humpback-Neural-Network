@@ -1,4 +1,5 @@
 import sys
+import re
 import csv
 
 class pattern_analyis:
