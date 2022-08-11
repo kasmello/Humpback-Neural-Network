@@ -39,7 +39,7 @@ def train_nn(DATA, **train_options):
     net = train_options['net']
     epochs=train_options['epochs']
     lbl=train_options['lbl']
-    loss_f=train_options['loss_f']
+    loss_f=F.nll_loss
     momentum=train_options['momentum']
     wd=train_options['wd']
     lr_decay=train_options['lr_decay']
@@ -51,13 +51,18 @@ def train_nn(DATA, **train_options):
         optimizer = optimizer(net.parameters(), lr=lr, momentum=momentum, weight_decay=wd)
     else:
         optimizer = optimizer(net.parameters(), lr=lr,weight_decay=wd)  # adamw algorithm
-    if lr_decay: scheduler = create_lr_scheduler_with_warmup(lr_decay(optimizer,1),
-                        warmup_start_value = lr/5,
+
+    warmup = 2
+    rest = epochs-warmup
+    if lr_decay: scheduler = create_lr_scheduler_with_warmup(lr_decay(optimizer,T_max=rest),
+                        warmup_start_value = lr/100,
                         warmup_end_value = lr,
-                        warmup_duration=1)
+                        warmup_duration=warmup)
     i = 0
     for epoch in tqdm(range(epochs)):
-        for batch in tqdm(DATA.all_training, leave=False):
+        if lr_decay: scheduler(None)
+        print(optimizer.param_groups[0]["lr"])
+        for batch in tqdm(DATA.all_training):
             net.train()
             x, y = batch
             net.zero_grad()
@@ -72,7 +77,6 @@ def train_nn(DATA, **train_options):
             if i % 10 == 0:
                 check_training_accuracy(DATA, net)
         net.eval()
-        if lr_decay: scheduler.step()
         final_layer = epoch == epochs - 1
         validate_model(DATA, net, loss, final_layer)
     torch.save(net.state_dict(), f'{name}.nn')
@@ -145,8 +149,7 @@ def run_model(DATA,net,lr,wd,epochs,momentum, optimm='sgd', lr_decay=None):
         optimm = optim.AdamW
         momentum=None
 
-    device = torch.device("dml" if platform.system()=='Windows'
-                                else "cpu")
+    device = torch.device("cpu")
 
     if lr_decay=='cosineAN':
         lr_decay = lsr.CosineAnnealingLR
@@ -166,7 +169,7 @@ def run_model(DATA,net,lr,wd,epochs,momentum, optimm='sgd', lr_decay=None):
         model.conv1 = nn.Conv2d(
             1, 64, kernel_size=7, stride=2, padding=3, bias=False)
         num_ftrs = model.fc.in_features
-        model.fc = nn.Linear(num_ftrs, 23)
+        model.fc = nn.Linear(num_ftrs, 28)
         model = model.to(device)
         lbl='ResNet18'
 
@@ -176,12 +179,12 @@ def run_model(DATA,net,lr,wd,epochs,momentum, optimm='sgd', lr_decay=None):
             1, 3, kernel_size=3, stride=1, padding=1, dilation=1, groups=1, bias=True)]
         first_conv_layer.extend(list(model.features))
         model.features = nn.Sequential(*first_conv_layer)
-        model.classifier[6].out_features = 23
+        model.classifier[6].out_features = 28
         model = model.to(device)
         lbl='VGG16'
 
     elif net == 'vit':
-        model = timm.create_model('vit_base_patch16_224',pretrained=True, num_classes=23, in_chans=1)
+        model = timm.create_model('vit_base_patch16_224',pretrained=True, num_classes=28, in_chans=1)
         model = model.to(device)
         lbl='ViT'
         

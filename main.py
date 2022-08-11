@@ -94,7 +94,7 @@ if __name__ == '__main__':
             #use https://arxiv.org/pdf/2106.10270.pdf as reference
             lr=0.0005
             wd=0.03
-            epochs=5
+            epochs=20
             momentum=0.9
             name='vit'
             optimm='sgd'
@@ -137,7 +137,7 @@ if __name__ == '__main__':
         elif option == '7':
             lr=0.1
             wd=0.03
-            epochs=5
+            epochs=10
             momentum=0.9
             name='cnnet'
             optimm='sgd'
@@ -147,7 +147,7 @@ if __name__ == '__main__':
         elif option == '8':
             lr=0.0005
             wd=0.03
-            epochs=5
+            epochs=10
             momentum=0.9
             name='resnet18'
             optimm='sgd'
@@ -157,7 +157,7 @@ if __name__ == '__main__':
         elif option == '9':
             lr=0.0005
             wd=0.03
-            epochs=5
+            epochs=10
             momentum=0.9
             name='vgg16'
             optimm='sgd'
