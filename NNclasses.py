@@ -147,7 +147,7 @@ class CNNet(nn.Module):
         self.convs(temp)
 
         self.fc1 = nn.Linear(self._to_linear,512)
-        self.fc2 = nn.Linear(512,23)
+        self.fc2 = nn.Linear(512,28)
 
     def __str__(self):
         return 'CNNet2'
@@ -175,7 +175,7 @@ class Net(nn.Module):
         self.fc1 = nn.Linear(224*224,1024)
         self.fc2 = nn.Linear(1024,1024)
         self.fc3 = nn.Linear(1024,1024)
-        self.fc4 = nn.Linear(1024,23)
+        self.fc4 = nn.Linear(1024,28)
 
     def __str__(self):
         return 'Net'
