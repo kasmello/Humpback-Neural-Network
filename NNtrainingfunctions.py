@@ -52,16 +52,17 @@ def train_nn(DATA, **train_options):
     else:
         optimizer = optimizer(net.parameters(), lr=lr,weight_decay=wd)  # adamw algorithm
 
-    warmup = 2
+    warmup = round(epochs/4)
+    if warmup < 2: warmup=2
     rest = epochs-warmup
     if lr_decay: scheduler = create_lr_scheduler_with_warmup(lr_decay(optimizer,T_max=rest),
-                        warmup_start_value = lr/100,
+                        warmup_start_value = lr/warmup,
                         warmup_end_value = lr,
                         warmup_duration=warmup)
     i = 0
     for epoch in tqdm(range(epochs)):
         if lr_decay: scheduler(None)
-        print(optimizer.param_groups[0]["lr"])
+        print({'lr': optimizer.param_groups[0]["lr"]})
         for batch in tqdm(DATA.all_training):
             net.train()
             x, y = batch
@@ -79,6 +80,7 @@ def train_nn(DATA, **train_options):
         net.eval()
         final_layer = epoch == epochs - 1
         validate_model(DATA, net, loss, final_layer)
+    wandb.finish()
     torch.save(net.state_dict(), f'{name}.nn')
 
 
@@ -101,7 +103,7 @@ def predict(data,net, num_batches=999999999):
         
 
 def check_training_accuracy(DATA,net):
-    images, predicted, label, pred, actual = predict(DATA.all_training, net, 125)
+    images, predicted, label, pred, actual = predict(DATA.all_training, net, 2)
     pred = DATA.inverse_encode(pred)
     actual = DATA.inverse_encode(actual)
     print('\n\n')
