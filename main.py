@@ -92,9 +92,9 @@ if __name__ == '__main__':
 
         elif option == '2':
             #use https://arxiv.org/pdf/2106.10270.pdf as reference
-            lr=0.0005
+            lr=0.0007
             wd=0.03
-            epochs=20
+            epochs=6
             momentum=0.9
             name='vit'
             optimm='sgd'
@@ -135,7 +135,7 @@ if __name__ == '__main__':
             start_model(name,lr,wd,momentum,epochs, optimm, lr_decay)
 
         elif option == '7':
-            lr=0.1
+            lr=0.001
             wd=0.03
             epochs=10
             momentum=0.9
@@ -145,7 +145,7 @@ if __name__ == '__main__':
             start_model(name,lr,wd,momentum,epochs, optimm, lr_decay)
 
         elif option == '8':
-            lr=0.0005
+            lr=0.05
             wd=0.03
             epochs=10
             momentum=0.9
