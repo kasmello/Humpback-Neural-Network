@@ -12,6 +12,7 @@ import torchvision.models as models
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
+import platform
 from tqdm import tqdm
 from math import ceil
 from datetime import datetime
@@ -20,6 +21,8 @@ from PIL import Image, ImageDraw
 from pydub import AudioSegment
 from transformclasses import FreqMask, TimeMask, TimeWarp
 # from spec_augment_pytorch import spec_augment #give credits where
+device = torch.device("cpu" if platform.system()=='Windows'
+                                else "mps")
 class nn_data:
 
     def __init__(self, root, batch_size):
@@ -147,7 +150,7 @@ class CNNet(nn.Module):
         self.convs(temp)
 
         self.fc1 = nn.Linear(self._to_linear,512)
-        self.fc2 = nn.Linear(512,28)
+        self.fc2 = nn.Linear(512,23)
 
     def __str__(self):
         return 'CNNet2'
@@ -175,7 +178,7 @@ class Net(nn.Module):
         self.fc1 = nn.Linear(224*224,1024)
         self.fc2 = nn.Linear(1024,1024)
         self.fc3 = nn.Linear(1024,1024)
-        self.fc4 = nn.Linear(1024,28)
+        self.fc4 = nn.Linear(1024,23)
 
     def __str__(self):
         return 'Net'

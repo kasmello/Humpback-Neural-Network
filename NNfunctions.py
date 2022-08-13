@@ -4,6 +4,7 @@ import numpy as np
 import csv
 import math
 import timm
+import platform
 from scipy.io import wavfile
 from collections import deque
 from skimage.transform import resize
@@ -14,6 +15,9 @@ import torchvision.models as models
 from torchvision import transforms
 from pydub import AudioSegment 
 from NNclasses import Net, CNNet
+
+device = torch.device("cpu" if platform.system()=='Windows'
+                                else "mps")
 
 def pad_out_row(row, segment_dur):
     dur = float(row['End Time (s)'])-float(row['Begin Time (s)'])
@@ -78,7 +82,7 @@ def wav_to_spectogram(item, save = True):
         plt.savefig(f'{item[:-4]}.png',bbox_inches=0)
         print('saved!')
 
-    return transforms.ToTensor()(log_Pxx)
+    return transforms.ToTensor()(log_Pxx).to(device)
 
 def load_all_selection_tables():
     """
@@ -112,7 +116,8 @@ def get_model_from_name(model_name):
 def run_through_audio(model_path, dict_path):
     model_name = model_path.split('/')[-1][:-3]
     model = get_model_from_name(model_name)
-    model.load_state_dict(torch.load(model_path))
+    model.load_state_dict(torch.load(model_path)) #investigate strict
+    model = model.to(device)
     index_dict = {}
     pa = pattern_analyis()
     with open(dict_path,'r') as file:

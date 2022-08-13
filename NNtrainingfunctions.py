@@ -30,6 +30,11 @@ def log_images(images,pred,actual):
     table = wandb.Table(data=data, columns = ["Predicted", "Actual",'Spectogram'])
     wandb.log({'Image Table': table})
 
+def load_batch_to_device(batch):
+    x, y = batch[0].to(device), batch[1].to(device)
+    return x,y
+
+
 
 # def train_nn(DATA, lr=0.001, optimizer=optim.AdamW, net=None, epochs=5, lbl='',
 #              loss_f=F.nll_loss, momentum=None, wd=0,lr_decay=None):
@@ -65,7 +70,7 @@ def train_nn(DATA, **train_options):
         print({'lr': optimizer.param_groups[0]["lr"]})
         for batch in tqdm(DATA.all_training):
             net.train()
-            x, y = batch
+            x, y = load_batch_to_device(batch)
             net.zero_grad()
             # sets gradients at 0 after each batch
             output = F.log_softmax(net(x), dim=1)
@@ -91,7 +96,7 @@ def predict(data,net, num_batches=999999999):
         for i, batch_v in enumerate(data):
             predicted = []
             label = []
-            x, y = batch_v
+            x, y = load_batch_to_device(batch_v)
             output = F.log_softmax(net(x), dim=1)
             for idx, e in enumerate(output):
                 predicted.append(torch.argmax(e))
@@ -151,7 +156,8 @@ def run_model(DATA,net,lr,wd,epochs,momentum, optimm='sgd', lr_decay=None):
         optimm = optim.AdamW
         momentum=None
 
-    device = torch.device("cpu")
+    device = torch.device("cpu" if platform.system()=='Windows'
+                                else "mps")
 
     if lr_decay=='cosineAN':
         lr_decay = lsr.CosineAnnealingLR
