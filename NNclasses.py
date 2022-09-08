@@ -17,20 +17,17 @@ from tqdm import tqdm
 from math import ceil
 from datetime import datetime
 from torchvision import transforms, datasets
-from PIL import Image, ImageDraw
+from PIL import Image, ImageStat
 from pydub import AudioSegment
 from transformclasses import FreqMask, TimeMask, TimeWarp
 # from spec_augment_pytorch import spec_augment #give credits where
-device = torch.device("cpu" if platform.system()=='Windows'
-                                else "mps")
 class nn_data:
 
     def __init__(self, root, batch_size):
         self.all_labels = nn_data.make_folders(root)
         self.all_labels.sort()
-        self.train_path, self.validation_path = self.stratify_sample(root)
-        self.all_training, self.all_validation, self.label_dict = self.grab_dataset(batch_size)
-        self.label_dict = {v: k for k, v in self.label_dict.items()}
+        self.stratify_sample(root)
+        self.grab_dataset(batch_size)
         self.save_label_dict()
 
     def save_label_dict(self):
@@ -49,34 +46,46 @@ class nn_data:
         transform = transforms.Compose([
             transforms.Grayscale(num_output_channels=1),
             transforms.ToTensor(),
-            TimeWarp(p=0.3,W=20),
-            FreqMask(p=0.3, F=50),
-            TimeMask(p=0.3, T=30),
+            TimeWarp(p=0.2,T=50),
+            FreqMask(p=0.2, F=20),
+            TimeMask(p=0.2, T=20),
+        ])
+
+        v_transform = transforms.Compose([
+            transforms.Grayscale(num_output_channels=1),
+            transforms.ToTensor(),
         ])
         train_folder = datasets.ImageFolder(self.train_path,transform=transform)
-        all_training = torch.utils.data.DataLoader(train_folder,
+        self.all_training = torch.utils.data.DataLoader(train_folder,
                                               batch_size=batch_size,
                                               shuffle=True,
                                               num_workers=3)
 
-        validation_folder = datasets.ImageFolder(self.validation_path,transform=transform)
-        all_validation = torch.utils.data.DataLoader(validation_folder,
+        validation_folder = datasets.ImageFolder(self.validation_path,transform=v_transform)
+        self.all_validation = torch.utils.data.DataLoader(validation_folder,
                                               batch_size=50,
                                               shuffle=True,
                                               num_workers=3)
-        return all_training, all_validation, train_folder.class_to_idx
+        self.label_dict = {v: k for k, v in train_folder.class_to_idx.items()}
 
     def test_transform(self):
+        img = Image.open(os.path.join(self.train_path, 'LM', 'LM-28.png'))
+        stat = ImageStat.Stat(img)
+        mean = stat.mean[:1]
+        std = stat.stddev[:1]
         transform = transforms.Compose([
+                transforms.Resize(224),
                 transforms.Grayscale(num_output_channels=1),
                 transforms.ToTensor(),
-                TimeWarp(p=0.3, W=20),
-                FreqMask(p=0.3, F=50),
-                TimeMask(p=0.3, T=30)
-                
+                # transforms.Normalize(mean = mean, std = std),
+                TimeWarp(p=1, T=50),
+                FreqMask(p=1, F=20),
+                TimeMask(p=1, T=20),                
             ])
-        img = Image.open(os.path.join(self.train_path, 'LM', 'Selection3-31.png'))
+        
+        print(img)
         example = transform(img)
+        breakpoint()
         plt.imshow(example[0])
         plt.show()
         plt.close()
@@ -137,7 +146,8 @@ class nn_data:
                         old_dir = os.path.join(root,dir,file)
                         new_dir = os.path.join(root,'Training',dir,file)
                         shutil.move(old_dir,new_dir)
-        return os.path.join(root, 'Training'), os.path.join(root, 'Validation')
+        self.train_path = os.path.join(root,'Training')
+        self.validation_path = os.path.join(root,'Validation')
 
 class CNNet(nn.Module):
     def __init__(self):
@@ -150,10 +160,10 @@ class CNNet(nn.Module):
         self.convs(temp)
 
         self.fc1 = nn.Linear(self._to_linear,512)
-        self.fc2 = nn.Linear(512,23)
+        self.fc2 = nn.Linear(512,25)
 
     def __str__(self):
-        return 'CNNet2'
+        return 'CNNet'
 
     def convs(self,x):
         x = F.max_pool2d(F.relu(self.conv1(x)),(2,2)) #3 by 3 pooling
@@ -178,7 +188,7 @@ class Net(nn.Module):
         self.fc1 = nn.Linear(224*224,1024)
         self.fc2 = nn.Linear(1024,1024)
         self.fc3 = nn.Linear(1024,1024)
-        self.fc4 = nn.Linear(1024,23)
+        self.fc4 = nn.Linear(1024,25)
 
     def __str__(self):
         return 'Net'

@@ -27,6 +27,7 @@ def find_root():
         return 'C://Users/Karmel 0481098535/Desktop/Humpback'
 
 ROOT = find_root()
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 
 def start_model(name,lr,wd,momentum,epochs, optimm, lr_decay):
     name_str = f'{datetime.now().strftime("%D %H:%M")}'
@@ -57,7 +58,7 @@ def find_file(extension, custom_string):
     output:
         str of file path
     """
-    all_models = pathlib.Path.cwd().glob(f'*.{extension}')
+    all_models = sorted(pathlib.Path.cwd().glob(f'*.{extension}'))
     ask_list = []
     for index, model_path in enumerate(all_models):
         model_path_str = model_path.as_posix()
@@ -85,10 +86,12 @@ if __name__ == '__main__':
                     \n6: Train and Test NN\
                     \n7: Train and Test CNN\
                     \n8: Train and Test Pretrained ResNet-18\
-                    \n9 Train and Test VGG16\n')
+                    \n9: Train and Test VGG16\
+                    \n10: Load model and tensor-to-label encoding\
+                    \n11: Test loaded model on Validation Data\n')
 
         if option == '1':
-            DATA = nn_data(ROOT, batch_size=16)
+            DATA = nn_data(ROOT, batch_size=32)
 
         elif option == '2':
             #use https://arxiv.org/pdf/2106.10270.pdf as reference
@@ -131,21 +134,21 @@ if __name__ == '__main__':
             momentum=0.9
             name='net'
             optimm='adamw'
-            lr_decay = 'cosineAN'
+            lr_decay = None
             start_model(name,lr,wd,momentum,epochs, optimm, lr_decay)
 
         elif option == '7':
-            lr=0.001
+            lr=0.01
             wd=0.03
             epochs=10
             momentum=0.9
             name='cnnet'
             optimm='sgd'
-            lr_decay = 'cosineAN'
+            lr_decay = None
             start_model(name,lr,wd,momentum,epochs, optimm, lr_decay)
 
         elif option == '8':
-            lr=0.05
+            lr=0.001
             wd=0.03
             epochs=10
             momentum=0.9
@@ -155,7 +158,7 @@ if __name__ == '__main__':
             start_model(name,lr,wd,momentum,epochs, optimm, lr_decay)
 
         elif option == '9':
-            lr=0.0005
+            lr=0.001
             wd=0.03
             epochs=10
             momentum=0.9
@@ -163,3 +166,14 @@ if __name__ == '__main__':
             optimm='sgd'
             lr_decay = 'cosineAN'
             start_model(name,lr,wd,momentum,epochs, optimm, lr_decay)
+
+        elif option == '10':
+            try:
+                MODEL_PATH = find_file('nn', 'You have no models constructed - make some models before doing this')
+                LABEL_DICT_PATH = find_file('csv', 'You have no label dictionaries - make some before doing this')
+            except FileNotFoundError as e:
+                print(e)
+
+        elif option == '11':
+            model = load_model_for_training(MODEL_PATH)
+            validate_model(DATA,model,None,False)

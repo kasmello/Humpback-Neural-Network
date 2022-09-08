@@ -8,6 +8,7 @@ def mac_to_pc(text):
 
 def pc_to_mac(text):
     new_text = text.replace('D:/HumpbackDetect', '/Volumes/HD/HumpbackDetect')
+    new_text = new_text.replace('F:/HumpbackDetect', '/Volumes/HD/HumpbackDetect')
     new_text = new_text.replace('/Volumes/HumpbackDetect', '/Volumes/HD/HumpbackDetect')
     new_text = new_text.replace('/Volumes/0481098535/HumpbackDetect','/Volumes/HD/HumpbackDetect')
     new_text = new_text.replace('D:\HumpbackDetect', '/Volumes/HD/HumpbackDetect')
@@ -17,6 +18,7 @@ def pc_to_mac(text):
 def other_fixes(text):
     new_text = text.replace('Volume/','Volumes/')
     new_text = new_text.replace('\\','/')
+    new_text = new_text.replace('Begin Sample (samples)', 'Beg File Samp (samples)')
     return new_text
     
 a = {

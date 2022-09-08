@@ -17,6 +17,8 @@ from NNclasses import Net, CNNet
 
 ssl._create_default_https_context = ssl._create_unverified_context
 
+device = torch.device("cpu" if platform.system()=='Windows'
+                                else "mps")
 
 def extract_f1_score(DATA, dict):
     data = [[category, dict[category]['f1-score']] for index, category in DATA.label_dict.items()]
@@ -35,9 +37,6 @@ def load_batch_to_device(batch):
     return x,y
 
 
-
-# def train_nn(DATA, lr=0.001, optimizer=optim.AdamW, net=None, epochs=5, lbl='',
-#              loss_f=F.nll_loss, momentum=None, wd=0,lr_decay=None):
 def train_nn(DATA, **train_options):
     lr=train_options['lr']
     optimizer=train_options['optimizer']
@@ -64,13 +63,13 @@ def train_nn(DATA, **train_options):
                         warmup_start_value = lr/warmup,
                         warmup_end_value = lr,
                         warmup_duration=warmup)
-    i = 0
-    for epoch in tqdm(range(epochs)):
+    for epoch in tqdm(range(epochs), position=0, leave=True):
+        net.train()
         if lr_decay: scheduler(None)
         print({'lr': optimizer.param_groups[0]["lr"]})
-        for batch in tqdm(DATA.all_training):
-            net.train()
+        for i, batch in enumerate(tqdm(DATA.all_training, position=0, leave=True)):
             x, y = load_batch_to_device(batch)
+            x.requires_grad = True
             net.zero_grad()
             # sets gradients at 0 after each batch
             output = F.log_softmax(net(x), dim=1)
@@ -79,14 +78,14 @@ def train_nn(DATA, **train_options):
             loss.backward()  # backward propagation
             torch.nn.utils.clip_grad_norm_(net.parameters(), 1)
             optimizer.step()
-            i += 1
-            if i % 10 == 0:
+            if i % 50 == 0 and i > 0:
+                net.eval()
                 check_training_accuracy(DATA, net)
         net.eval()
         final_layer = epoch == epochs - 1
-        validate_model(DATA, net, loss, final_layer)
-    wandb.finish()
-    torch.save(net.state_dict(), f'{name}.nn')
+        torch.save(net.state_dict(), f'{name}{epoch}.nn')
+        validate_model(DATA, net, loss.detach(), final_layer)
+    wandb.finish() 
 
 
 def predict(data,net, num_batches=999999999):
@@ -94,21 +93,17 @@ def predict(data,net, num_batches=999999999):
         pred = []
         actual = []
         for i, batch_v in enumerate(data):
-            predicted = []
-            label = []
             x, y = load_batch_to_device(batch_v)
             output = F.log_softmax(net(x), dim=1)
             for idx, e in enumerate(output):
-                predicted.append(torch.argmax(e))
-                label.append(y[idx])
-            pred.extend(predicted)
-            actual.extend(label)
+                pred.append(torch.argmax(e))
+                actual.append(y[idx])
             if i == num_batches-1 or i == len(data)-1:
-                return x, predicted, label, pred, actual
+                return x, pred, actual
         
 
 def check_training_accuracy(DATA,net):
-    images, predicted, label, pred, actual = predict(DATA.all_training, net, 2)
+    images, pred, actual = predict(DATA.all_training, net, 3)
     pred = DATA.inverse_encode(pred)
     actual = DATA.inverse_encode(actual)
     print('\n\n')
@@ -118,14 +113,13 @@ def check_training_accuracy(DATA,net):
     recall = output['weighted avg']['recall']
     result_dict = {'T Accuracy': accuracy,
             'T Wgt Precision': precision, 'T Wgt Recall': recall}
-    print(result_dict)
-    wandb.log(result_dict)
+    # print(result_dict)
+    if wandb.run:
+        wandb.log(result_dict)
 
 
 def validate_model(DATA, net, loss, final_layer):
-    images, predicted, label, pred, actual = predict(DATA.all_validation,net)
-    predicted = DATA.inverse_encode(predicted)
-    label = DATA.inverse_encode(label)
+    images, pred, actual = predict(DATA.all_validation,net)
     pred = DATA.inverse_encode(pred)
     actual = DATA.inverse_encode(actual)
     print('\n\n')
@@ -136,9 +130,10 @@ def validate_model(DATA, net, loss, final_layer):
     result_dict = {'Loss': loss, 'V Accuracy': accuracy,
             'V Wgt Precision': precision, 'V Wgt Recall': recall}
     print(result_dict)
-    wandb.log(result_dict)
+    if wandb.run:
+        wandb.log(result_dict)
     if final_layer:
-        log_images(images,predicted,label)
+        log_images(images,pred[-len(images):],actual[-len(images):])
         extract_f1_score(DATA, output)
         print(classification_report(actual, pred))
         cm = confusion_matrix(actual,pred)
@@ -156,11 +151,11 @@ def run_model(DATA,net,lr,wd,epochs,momentum, optimm='sgd', lr_decay=None):
         optimm = optim.AdamW
         momentum=None
 
-    device = torch.device("cpu" if platform.system()=='Windows'
-                                else "mps")
-
     if lr_decay=='cosineAN':
         lr_decay = lsr.CosineAnnealingLR
+
+    elif lr_decay=='cosineANW':
+        lr_decay = lsr.CosineAnnealingWarmRestarts
 
     if net == 'net':
         model = Net()
@@ -177,7 +172,7 @@ def run_model(DATA,net,lr,wd,epochs,momentum, optimm='sgd', lr_decay=None):
         model.conv1 = nn.Conv2d(
             1, 64, kernel_size=7, stride=2, padding=3, bias=False)
         num_ftrs = model.fc.in_features
-        model.fc = nn.Linear(num_ftrs, 28)
+        model.fc = nn.Linear(num_ftrs, 25)
         model = model.to(device)
         lbl='ResNet18'
 
@@ -187,12 +182,12 @@ def run_model(DATA,net,lr,wd,epochs,momentum, optimm='sgd', lr_decay=None):
             1, 3, kernel_size=3, stride=1, padding=1, dilation=1, groups=1, bias=True)]
         first_conv_layer.extend(list(model.features))
         model.features = nn.Sequential(*first_conv_layer)
-        model.classifier[6].out_features = 28
+        model.classifier[6].out_features = 25
         model = model.to(device)
         lbl='VGG16'
 
     elif net == 'vit':
-        model = timm.create_model('vit_base_patch16_224',pretrained=True, num_classes=28, in_chans=1)
+        model = timm.create_model('vit_base_patch16_224',pretrained=True, num_classes=25, in_chans=1)
         model = model.to(device)
         lbl='ViT'
         
