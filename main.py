@@ -105,7 +105,6 @@ if __name__ == '__main__':
             start_model(name,lr,wd,momentum,epochs, optimm, lr_decay)
 
         elif option == '3':
-
             DATA.test_transform()
 
         elif option == '4':

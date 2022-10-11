@@ -1,6 +1,5 @@
 # Humpback-Neural-Network
 
-Readme file
-20/01/22
+## Background
 
-(to fill out)
+This Python packages provides a Terminal-based UI and parameter-based Neural Network training.

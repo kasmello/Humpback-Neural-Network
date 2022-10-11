@@ -99,9 +99,26 @@ class TimeMask(nn.Module):
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(p={self.p})(T={self.T})(Masks={self.masks})"
 
+class PinkNoise(nn.Module):
+    def __init__(self, p=0.2):
+        super().__init__()
+        self.p = p
+
+    def forward(self, img):
+        if random.random() > self.p:
+            return img
+        
+        for img in range(len(img[0])):
+            pass
+        return 1/np.where(img[0] == 0, float('inf'), np.sqrt(f)/2)
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(p={self.p})"
+
+
+
 def normalise(img):
     img = 10 * np.log10(img)
-    # img = Pxx
     img = np.flipud(img)
     max_box = img.max()
     for i in range(len(img)):

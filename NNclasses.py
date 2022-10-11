@@ -69,26 +69,31 @@ class nn_data:
         self.label_dict = {v: k for k, v in train_folder.class_to_idx.items()}
 
     def test_transform(self):
-        img = Image.open(os.path.join(self.train_path, 'LM', 'LM-28.png'))
-        stat = ImageStat.Stat(img)
-        mean = stat.mean[:1]
-        std = stat.stddev[:1]
-        transform = transforms.Compose([
-                transforms.Resize(224),
-                transforms.Grayscale(num_output_channels=1),
-                transforms.ToTensor(),
-                # transforms.Normalize(mean = mean, std = std),
-                TimeWarp(p=1, T=50),
-                FreqMask(p=1, F=20),
-                TimeMask(p=1, T=20),                
-            ])
-        
-        print(img)
-        example = transform(img)
-        breakpoint()
-        plt.imshow(example[0])
-        plt.show()
-        plt.close()
+        image1 = os.path.join(self.train_path, 'LM', 'LM-27.png')
+        image2 = os.path.join(self.train_path, 'C', 'C-87.png')
+        image3 = os.path.join(self.train_path, 'D', 'D-1197.png')
+        testing_images = [image1, image2, image3]
+        for img_path in testing_images:
+            img = Image.open(img_path)
+            plt.imshow(img)
+            plt.show()
+            plt.close()
+            stat = ImageStat.Stat(img)
+            mean = stat.mean[:1]
+            std = stat.stddev[:1]
+            transform = transforms.Compose([
+                    transforms.Resize(224),
+                    transforms.Grayscale(num_output_channels=1),
+                    transforms.ToTensor(),
+                    # transforms.Normalize(mean = mean, std = std),
+                    TimeWarp(p=1, T=50),
+                    FreqMask(p=1, F=20),
+                    TimeMask(p=1, T=20),                
+                ])
+            example = transform(img)
+            plt.imshow(example[0], cmap='gray')
+            plt.show()
+            plt.close()
 
     def pad_all_spectograms(self,pad_ms=2200):
         for item in self.wavs:
