@@ -1,14 +1,19 @@
-project: Overfit
+project: Sweep
 program: sweep.py
-method: random
+method: bayes
+metric:
+  goal: minimize
+  name: Loss
 entity: kasmello
 parameters:
   lr:
     distribution: 'uniform'
-    min: 0.00005
-    max: 0.001
+    min: 0.0005
+    max: 0.05
+  batch_size:
+    values: [16,64]
   lr_decay:
-    calues: ['none','cosineAN']
+    values: ['none','cosineAN', 'cosineANW']
   wd:
     value: 0.03
   momentum:
@@ -16,4 +21,4 @@ parameters:
   architecture:
     values: ['vgg16']
   epochs:
-    value: 10
+    value: 20

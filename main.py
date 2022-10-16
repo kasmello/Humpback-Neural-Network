@@ -14,7 +14,8 @@ from NNclasses import nn_data
 
 DATA = None
 MODEL_PATH = None
-LABEL_DICT_PATH = None
+LABEL_DICT_PATH = 'index_to_label.csv'
+
 
 
 def find_root():
@@ -22,9 +23,9 @@ def find_root():
     simple function to return string of data folder
     """
     if platform.system() == 'Darwin':  # MAC
-        return '/Volumes/Macintosh HD/Users/karmel/Desktop/Training/Humpback'
+        return '/Volumes/Macintosh HD/Users/karmel/Desktop/Training/Humpback/clean'
     elif platform.system() == 'Windows':
-        return 'C://Users/Karmel 0481098535/Desktop/Humpback'
+        return 'C://Users/Karmel 0481098535/Desktop/Humpback/clean'
 
 ROOT = find_root()
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
@@ -49,29 +50,37 @@ def start_model(name,lr,wd,momentum,epochs, optimm, lr_decay):
     wandb.init(project=name, name=name_str, entity="kasmello")
     run_model(DATA,name,lr,wd, epochs,momentum, optimm, lr_decay)
 
-def find_file(extension, custom_string):
+def find_file(path,search_string):
     """
     find file with specific extension
     input:
         extension - string of extension (e.g. csv)
-        custom_string - string to print if no files with the extension are found
     output:
         str of file path
     """
-    all_models = sorted(pathlib.Path.cwd().glob(f'*.{extension}'))
+    all_files = sorted(pathlib.Path(path).glob(search_string))
     ask_list = []
-    for index, model_path in enumerate(all_models):
-        model_path_str = model_path.as_posix()
-        name = model_path_str.split('/')[-1]
-        ask_list.append([f'{index}: {name}',model_path_str])
-    if len(ask_list) == 0: 
-        print(custom_string)
-        raise FileNotFoundError(custom_string)
+    for index, file_path_obj in enumerate(all_files):
+        file_path = file_path_obj.as_posix()
+        name = file_path.split('/')[-1]
+        ask_list.append([f'{index}: {name}',file_path])
     ask_str = ''
     for item in ask_list:
         ask_str += item[0]+'\n'
     index_for_model = input(f'Type number to select a file: 0 to {len(ask_list)-1}\n{ask_str}')
     return ask_list[int(index_for_model)][1]
+
+def load_model_and_dict():
+    try:
+        if not os.path.exists('Models'):
+            raise FileNotFoundError('You have no models!')
+        if not os.path.exists(LABEL_DICT_PATH):
+            raise FileNotFoundError('index to label csv not found!')
+        model_chosen = find_file('Models','*')
+        model_path = find_file(model_chosen,'*.nn')
+        return model_path
+    except FileNotFoundError as e:
+        print(e)
 
 
 if __name__ == '__main__':
@@ -82,49 +91,39 @@ if __name__ == '__main__':
                     \n2: Train and Test Vision Transformer model\
                     \n3: Test how the transform looks on example data\
                     \n4: Go through the Entire Dataset (BETA)\
-                    \n5: Idk\
+                    \n5: Calculate Energy Levels of spectogram\
                     \n6: Train and Test NN\
                     \n7: Train and Test CNN\
                     \n8: Train and Test Pretrained ResNet-18\
                     \n9: Train and Test VGG16\
-                    \n10: Load model and tensor-to-label encoding\
+                    \n10: Load model\
                     \n11: Test loaded model on Validation Data\n')
 
         if option == '1':
-            DATA = nn_data(ROOT, batch_size=32)
+            DATA = nn_data(ROOT, batch_size=16)
 
         elif option == '2':
             #use https://arxiv.org/pdf/2106.10270.pdf as reference
-            lr=0.0007
+            lr=0.0003
             wd=0.03
             epochs=6
             momentum=0.9
             name='vit'
             optimm='sgd'
-            lr_decay = 'cosineAN'
+            lr_decay = None
             start_model(name,lr,wd,momentum,epochs, optimm, lr_decay)
 
         elif option == '3':
             DATA.test_transform()
 
         elif option == '4':
-            try:
-                MODEL_PATH = find_file('nn', 'You have no models constructed - make some models before doing this')
-                LABEL_DICT_PATH = find_file('csv', 'You have no label dictionaries - make some before doing this')
-            except FileNotFoundError as e:
-                print(e)
+            if not MODEL_PATH:
+                MODEL_PATH = load_model_and_dict()
             run_through_audio(MODEL_PATH, LABEL_DICT_PATH)
 
         elif option == '5':
 
-            # Training
-            # vision_transformer = NNclasses.VisionTransformer()
-            # for epoch in range(2):
-            #     for item in all_training_labels:
-            #         label = item.label
-            #         for png in item.pngs:
-            #             input = png
-            pass
+            get_psd_distribution_of_all_images(DATA)
 
         elif option[0] == '6':
             lr=0.001
@@ -167,12 +166,8 @@ if __name__ == '__main__':
             start_model(name,lr,wd,momentum,epochs, optimm, lr_decay)
 
         elif option == '10':
-            try:
-                MODEL_PATH = find_file('nn', 'You have no models constructed - make some models before doing this')
-                LABEL_DICT_PATH = find_file('csv', 'You have no label dictionaries - make some before doing this')
-            except FileNotFoundError as e:
-                print(e)
+            MODEL_PATH = load_model_and_dict()
 
         elif option == '11':
-            model = load_model_for_training(MODEL_PATH)
-            validate_model(DATA,model,None,False)
+            model = load_model_for_training(MODEL_PATH, len(DATA.all_labels))
+            validate_model(DATA,model,None,True)

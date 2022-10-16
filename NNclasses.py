@@ -4,6 +4,7 @@ this is where the class containing tensor data/training functions is coded!
 
 import os
 import torch
+import torch.multiprocessing
 import random
 import shutil
 import torch.nn.functional as F
@@ -20,6 +21,11 @@ from torchvision import transforms, datasets
 from PIL import Image, ImageStat
 from pydub import AudioSegment
 from transformclasses import FreqMask, TimeMask, TimeWarp
+
+# torch.multiprocessing.set_sharing_strategy('file_system')
+
+# def set_worker_sharing_strategy(worker_id: int) -> None:
+#     torch.multiprocessing.set_sharing_strategy('file_system')
 # from spec_augment_pytorch import spec_augment #give credits where
 class nn_data:
 
@@ -31,15 +37,16 @@ class nn_data:
         self.save_label_dict()
 
     def save_label_dict(self):
-        curr_datetime = datetime.now().isoformat(timespec='hours')
-        with open(f'{curr_datetime}_index_to_label.csv','w') as file:
+        with open(f'index_to_label.csv','w') as file:
             file.write('Code,Label\n')
             for key, item in self.label_dict.items():
                 file.write(f'{key}, {item}\n')
 
 
-    def inverse_encode(self, llist):
-        return [self.label_dict[int(x.item())] for x in llist]
+    def inverse_encode(self, labels):
+        if len(labels) == 1:
+            return self.label_dict[int(labels[0].item())]
+        return [self.label_dict[int(x.item())] for x in labels]
 
 
     def grab_dataset(self, batch_size):
@@ -59,13 +66,13 @@ class nn_data:
         self.all_training = torch.utils.data.DataLoader(train_folder,
                                               batch_size=batch_size,
                                               shuffle=True,
-                                              num_workers=3)
+                                              num_workers=0)
 
         validation_folder = datasets.ImageFolder(self.validation_path,transform=v_transform)
         self.all_validation = torch.utils.data.DataLoader(validation_folder,
                                               batch_size=50,
                                               shuffle=True,
-                                              num_workers=3)
+                                              num_workers=0)
         self.label_dict = {v: k for k, v in train_folder.class_to_idx.items()}
 
     def test_transform(self):
@@ -155,7 +162,7 @@ class nn_data:
         self.validation_path = os.path.join(root,'Validation')
 
 class CNNet(nn.Module):
-    def __init__(self):
+    def __init__(self, num_classes):
         super().__init__()
         self.conv1 = nn.Conv2d(1,32,3)
         self.conv2 = nn.Conv2d(32,64,3)
@@ -165,7 +172,7 @@ class CNNet(nn.Module):
         self.convs(temp)
 
         self.fc1 = nn.Linear(self._to_linear,512)
-        self.fc2 = nn.Linear(512,25)
+        self.fc2 = nn.Linear(512,num_classes)
 
     def __str__(self):
         return 'CNNet'
@@ -188,12 +195,12 @@ class CNNet(nn.Module):
 
 
 class Net(nn.Module):
-    def __init__(self):
+    def __init__(self, num_classes):
         super().__init__()
         self.fc1 = nn.Linear(224*224,1024)
         self.fc2 = nn.Linear(1024,1024)
         self.fc3 = nn.Linear(1024,1024)
-        self.fc4 = nn.Linear(1024,25)
+        self.fc4 = nn.Linear(1024,num_classes)
 
     def __str__(self):
         return 'Net'

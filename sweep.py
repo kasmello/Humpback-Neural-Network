@@ -7,12 +7,13 @@ if __name__=='__main__':
 
 
     if platform.system() == 'Darwin':  # MAC
-        root = '/Volumes/Macintosh HD/Users/karmel/Desktop/Training/Humpback'
+        root = '/Volumes/Macintosh HD/Users/karmel/Desktop/Training/Humpback/clean'
     elif platform.system() == 'Windows':
         root = 'C://Users/Karmel 0481098535/Desktop/Humpback'
-    DATA = nn_data(root, batch_size = 32)
-    wandb.init(project="Sweep Project",entity="kasmello")
+    wandb.init(project='Overfit',entity="kasmello")
     config=wandb.config
-    run_model(DATA=DATA, net=config.architecture, lr=config.lr, wd=config.wd, epochs=config.epochs, \
+    DATA = nn_data(root, batch_size = config.batch_size)    
+    
+    run_model(DATA=DATA, net_name=config.architecture, lr=config.lr, wd=config.wd, epochs=config.epochs, \
                         momentum=config.momentum, lr_decay = config.lr_decay)
     
