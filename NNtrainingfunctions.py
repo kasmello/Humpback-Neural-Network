@@ -1,11 +1,12 @@
 import torch
-import torch.multiprocessing
 import pathlib
 import wandb
 import ssl
 import timm
 import time
+import os
 import platform
+import requests
 from tqdm import tqdm
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
@@ -15,7 +16,10 @@ import torchvision.models as models
 import torch.optim.lr_scheduler as lsr
 from sklearn.metrics import classification_report, confusion_matrix, ConfusionMatrixDisplay
 from ignite.contrib.handlers import create_lr_scheduler_with_warmup
+from datetime import datetime
 from NNclasses import Net, CNNet
+from ignite.handlers import EarlyStopping
+
 
 
 ssl._create_default_https_context = ssl._create_unverified_context
@@ -52,10 +56,7 @@ def train_nn(DATA, **train_options):
     momentum=train_options['momentum']
     wd=train_options['wd']
     lr_decay=train_options['lr_decay']
-
-    name = str(net)
-    if len(str(net)) > 10:
-        name = lbl
+    name = lbl
     if momentum:
         optimizer = optimizer(net.parameters(), lr=lr, momentum=momentum, weight_decay=wd)
     else:
@@ -71,6 +72,8 @@ def train_nn(DATA, **train_options):
     pathlib.Path(f'Models/{name}').mkdir(parents=True, exist_ok=True)
     
     total_time = 0
+    patience=2
+    prev_score = 100
     for epoch in tqdm(range(epochs), position=0, leave=True):
         net.train()
         if lr_decay: scheduler(None)
@@ -88,17 +91,25 @@ def train_nn(DATA, **train_options):
             torch.nn.utils.clip_grad_norm_(net.parameters(), 1)
             optimizer.step()
             pause = time.time()
-            total_time += start-pause
-            if i % 200 == 0 and i > 0:
+            total_time += pause-start
+            if i % (3200//len(x)) == 0 and i > 0:
                 net.eval()
                 check_training_accuracy(DATA, net)
-            wandb.log({'Time taken': round(total_time,2)})
+                
+                wandb.log({'Time taken': round(total_time,2)})
+                
         net.eval()
         final_layer = epoch == epochs - 1
-        
-        torch.save(net.state_dict(), f'Models/{name}/{name}{epoch}.nn')
+        torch.save(net.state_dict(), f'Models/{name}/{name}-{epoch}.nn')
         validate_model(DATA, net, loss.item(), final_layer)
-    total_time = round(total_time/60000000000,2)
+        if prev_score - loss.item() < 0.01:
+            patience -= 1
+            print(f'Patience now at {patience}')
+        else:
+            prev_score = loss.item()
+            patience=2
+        if patience == 0:
+            break
     wandb.finish() 
 
 
@@ -157,7 +168,29 @@ def validate_model(DATA, net, loss, final_layer):
             disp.plot()
             plt.show()
 
-def run_model(DATA,net_name,lr,wd,epochs,momentum, optimm='sgd', lr_decay=None):
+def run_model(DATA,net_name,lr,wd,momentum,epochs, optimm='sgd', lr_decay=None):
+    try:
+        requests.get('https://www.google.com')
+    except requests.ConnectionError:
+        print('Cannot connect to the internet, disabling online mode for WANDB')
+        os.environ["WANDB_MODE"]='dryrun'
+    
+    params_str = ''
+    if lr:
+        params_str += f' lr={lr}'
+    if wd:
+        params_str += f' wd={wd}'
+    if momentum:
+        params_str += f' momentum={momentum}'
+    if optimm:
+        params_str += f' optimm={optimm}'
+    if lr_decay:
+        params_str += f' lr_decay={lr_decay}'
+    if not wandb.run: #If this ain't a sweep
+        special_indicator = input('Input special indicator for the NN name for saving. Blank to leave as default')
+        wandb.init(project='{fnet_name}', name=params_str, entity="kasmello")
+
+
     if optimm == 'sgd':
         optimm=optim.SGD
 
@@ -173,8 +206,8 @@ def run_model(DATA,net_name,lr,wd,epochs,momentum, optimm='sgd', lr_decay=None):
     else:
         lr_decay = None
 
-    model = get_model_from_name(net_name,len(DATA.all_labels))      
-    train_nn(DATA, lr=lr, wd=wd, epochs=epochs, optimizer=optimm, net=model, lbl=net_name,
+    model = get_model_from_name(net_name,len(DATA.all_labels))  
+    train_nn(DATA, lr=lr, wd=wd, epochs=epochs, optimizer=optimm, net=model, lbl=f'{net_name}_{params_str}_{special_indicator}',
                                         momentum=momentum,lr_decay=lr_decay)
 
 def get_model_from_name(model_name,num_labels):
@@ -207,4 +240,4 @@ def get_model_from_name(model_name,num_labels):
         return model
 
     elif model_name[:3].lower()=='vit':
-        return timm.create_model('vit_tiny_patch16_224',pretrained=True, num_classes=num_labels, in_chans=1).to(device)
+        return timm.create_model('vit_deit_small_distilled_patch16_224',pretrained=True, num_classes=num_labels, in_chans=1).to(device)

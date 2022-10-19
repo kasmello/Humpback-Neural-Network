@@ -5,12 +5,12 @@ detect Humpback whales
 
 import os
 import pathlib
-import requests
 import platform
 from datetime import datetime
 from NNfunctions import *
 from NNtrainingfunctions import *
 from NNclasses import nn_data
+from read_audio_module import grab_spectogram
 
 DATA = None
 MODEL_PATH = None
@@ -29,26 +29,6 @@ def find_root():
 
 ROOT = find_root()
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
-
-def start_model(name,lr,wd,momentum,epochs, optimm, lr_decay):
-    name_str = f'{datetime.now().strftime("%D %H:%M")}'
-    if lr:
-        name_str += f' lr={lr}'
-    if wd:
-        name_str += f' wd={wd}'
-    if momentum:
-        name_str += f' momentum={momentum}'
-    if optimm:
-        name_str += f' optimm={optimm}'
-    if lr_decay:
-        name_str += f' lr_decay={lr_decay}'
-    try:
-        requests.get('https://www.google.com')
-    except requests.ConnectionError:
-        print('Cannot connect to the internet, disabling online mode for WANDB')
-        os.environ["WANDB_MODE"]='dryrun'
-    wandb.init(project=name, name=name_str, entity="kasmello")
-    run_model(DATA,name,lr,wd, epochs,momentum, optimm, lr_decay)
 
 def find_file(path,search_string):
     """
@@ -87,6 +67,7 @@ if __name__ == '__main__':
     finished = False
     while not finished:
         option = input('\nHello. What would you like to do?\
+                    \n0: Quit\
                     \n1: Make Training and Validation Data\
                     \n2: Train and Test Vision Transformer model\
                     \n3: Test how the transform looks on example data\
@@ -97,7 +78,12 @@ if __name__ == '__main__':
                     \n8: Train and Test Pretrained ResNet-18\
                     \n9: Train and Test VGG16\
                     \n10: Load model\
-                    \n11: Test loaded model on Validation Data\n')
+                    \n11: Test loaded model on Validation Data\
+                    \n12: Waveform/Spectrogram playground\n')
+
+        if option == '0':
+            print('BYE')
+            finished = True
 
         if option == '1':
             DATA = nn_data(ROOT, batch_size=16)
@@ -111,7 +97,7 @@ if __name__ == '__main__':
             name='vit'
             optimm='sgd'
             lr_decay = None
-            start_model(name,lr,wd,momentum,epochs, optimm, lr_decay)
+            run_model(name,lr,wd,momentum,epochs, optimm, lr_decay)
 
         elif option == '3':
             DATA.test_transform()
@@ -133,7 +119,7 @@ if __name__ == '__main__':
             name='net'
             optimm='adamw'
             lr_decay = None
-            start_model(name,lr,wd,momentum,epochs, optimm, lr_decay)
+            run_model(name,lr,wd,momentum,epochs, optimm, lr_decay)
 
         elif option == '7':
             lr=0.01
@@ -143,7 +129,7 @@ if __name__ == '__main__':
             name='cnnet'
             optimm='sgd'
             lr_decay = None
-            start_model(name,lr,wd,momentum,epochs, optimm, lr_decay)
+            run_model(name,lr,wd,momentum,epochs, optimm, lr_decay)
 
         elif option == '8':
             lr=0.001
@@ -153,7 +139,7 @@ if __name__ == '__main__':
             name='resnet18'
             optimm='sgd'
             lr_decay = 'cosineAN'
-            start_model(name,lr,wd,momentum,epochs, optimm, lr_decay)
+            run_model(name,lr,wd,momentum,epochs, optimm, lr_decay)
 
         elif option == '9':
             lr=0.001
@@ -163,7 +149,7 @@ if __name__ == '__main__':
             name='vgg16'
             optimm='sgd'
             lr_decay = 'cosineAN'
-            start_model(name,lr,wd,momentum,epochs, optimm, lr_decay)
+            run_model(name,lr,wd,momentum,epochs, optimm, lr_decay)
 
         elif option == '10':
             MODEL_PATH = load_model_and_dict()
@@ -171,3 +157,8 @@ if __name__ == '__main__':
         elif option == '11':
             model = load_model_for_training(MODEL_PATH, len(DATA.all_labels))
             validate_model(DATA,model,None,True)
+
+        elif option == '12':
+            wavform, clean, sample_rate = grab_spectogram('Test Wavs/20090617040001.wav')
+            plt.plot(wavform[0][0:8000])
+            plt.show()

@@ -10,7 +10,8 @@ if __name__=='__main__':
         root = '/Volumes/Macintosh HD/Users/karmel/Desktop/Training/Humpback/clean'
     elif platform.system() == 'Windows':
         root = 'C://Users/Karmel 0481098535/Desktop/Humpback'
-    wandb.init(project='Overfit',entity="kasmello")
+    print('Sweep modo!!!')
+    wandb.init(resume="allow")
     config=wandb.config
     DATA = nn_data(root, batch_size = config.batch_size)    
     
