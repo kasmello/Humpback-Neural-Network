@@ -1,19 +1,14 @@
-project: Sweep
+project: Sweep_bumisfat
 program: sweep.py
-method: bayes
-metric:
-  goal: minimize
-  name: Loss
+method: grid
 entity: kasmello
 parameters:
   lr:
-    distribution: 'uniform'
-    min: 0.0005
-    max: 0.05
+    values: [0.0001,0.0002,0.0004,0.0008,0.0016]
   batch_size:
     values: [16,64]
   lr_decay:
-    values: ['none','cosineAN', 'cosineANW']
+    values: ['none','cosineAN','cosineANW']
   wd:
     value: 0.03
   momentum:
