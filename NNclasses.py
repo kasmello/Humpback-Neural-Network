@@ -1,7 +1,7 @@
 '''
 this is where the class containing tensor data/training functions is coded!
 '''
-
+import pathlib
 import os
 import torch
 import random
@@ -19,7 +19,7 @@ from datetime import datetime
 from torchvision import transforms, datasets
 from PIL import Image, ImageStat
 from pydub import AudioSegment
-from transformclasses import FreqMask, TimeMask, TimeWarp
+from transformclasses import *
 import timm
 from timm.models.layers import to_2tuple,trunc_normal_
 
@@ -37,6 +37,34 @@ class nn_data:
         self.stratify_sample(root)
         self.grab_dataset(batch_size)
         self.save_label_dict()
+        self.train_transform = transforms.Compose([
+            AddPinkNoise(p=0.2,power=0.4),
+            Normalise_Spectrogram(),
+            transforms.Resize(224),
+            transforms.Grayscale(num_output_channels=1),
+            transforms.ToTensor(),
+            TimeWarp(p=0.2,T=50),
+            FreqMask(p=0.2, F=20),
+            TimeMask(p=0.2, T=20),
+        ])
+
+        self.test_transform = transforms.Compose([
+            AddPinkNoise(p=1,power=0.4),
+            Normalise_Spectrogram(),
+            transforms.Resize(224),
+            transforms.Grayscale(num_output_channels=1),
+            transforms.ToTensor(),
+            TimeWarp(p=1,T=50),
+            FreqMask(p=1, F=20),
+            TimeMask(p=1, T=20),
+        ])
+
+        self.v_transform = ransforms.Compose([
+            Normalise_Spectrogram(),
+            transforms.Resize(224),
+            transforms.Grayscale(num_output_channels=1),
+            transforms.ToTensor(),
+        ])
 
     def save_label_dict(self):
         with open(f'index_to_label.csv','w') as file:
@@ -52,25 +80,14 @@ class nn_data:
 
 
     def grab_dataset(self, batch_size):
-        transform = transforms.Compose([
-            transforms.Grayscale(num_output_channels=1),
-            transforms.ToTensor(),
-            TimeWarp(p=0.2,T=50),
-            FreqMask(p=0.2, F=20),
-            TimeMask(p=0.2, T=20),
-        ])
 
-        v_transform = transforms.Compose([
-            transforms.Grayscale(num_output_channels=1),
-            transforms.ToTensor(),
-        ])
-        train_folder = datasets.ImageFolder(self.train_path,transform=transform)
+        train_folder = datasets.ImageFolder(self.train_path,transform=self.train_transform)
         self.all_training = torch.utils.data.DataLoader(train_folder,
                                               batch_size=batch_size,
                                               shuffle=True,
                                               num_workers=0)
 
-        validation_folder = datasets.ImageFolder(self.validation_path,transform=v_transform)
+        validation_folder = datasets.ImageFolder(self.validation_path,transform=self.v_transform)
         self.all_validation = torch.utils.data.DataLoader(validation_folder,
                                               batch_size=50,
                                               shuffle=True,
@@ -78,57 +95,35 @@ class nn_data:
         self.label_dict = {v: k for k, v in train_folder.class_to_idx.items()}
 
     def test_transform(self):
-        image1 = os.path.join(self.train_path, 'LM', 'LM-27.png')
-        image2 = os.path.join(self.train_path, 'C', 'C-87.png')
-        image3 = os.path.join(self.train_path, 'D', 'D-1197.png')
-        testing_images = [image1, image2, image3]
-        for img_path in testing_images:
+        categories_checked = ['LM','C','D']
+        images = []
+        for category in categories_checked:
+            image_path = pathlib.Path(os.path.join(self.train_path, category)).glob('*.png')
+            for path in image_path:
+                images.append(path.as_posix())
+                break
+        for img_path in images:
             img = Image.open(img_path)
             plt.imshow(img)
             plt.show()
             plt.close()
-            stat = ImageStat.Stat(img)
-            mean = stat.mean[:1]
-            std = stat.stddev[:1]
-            transform = transforms.Compose([
-                    transforms.Resize(224),
-                    transforms.Grayscale(num_output_channels=1),
-                    transforms.ToTensor(),
-                    # transforms.Normalize(mean = mean, std = std),
-                    TimeWarp(p=1, T=50),
-                    FreqMask(p=1, F=20),
-                    TimeMask(p=1, T=20),                
-                ])
-            example = transform(img)
+            # stat = ImageStat.Stat(img)
+            example = self.test_transform(img)
             plt.imshow(example[0], cmap='gray')
             plt.show()
             plt.close()
 
-    def pad_all_spectograms(self,pad_ms=2200):
-        for item in self.wavs:
-            audio = AudioSegment.from_wav(item)
-            if len(audio) != 2200:
-                print(f'original length: {len(audio)}')
-                silence1 = AudioSegment.silent(duration=int((pad_ms-len(audio))/2))
-                silence2 = AudioSegment.silent(duration=ceil((pad_ms-len(audio))/2))
-                new_length = len(audio)+len(silence1)+len(silence2)
-                print(f'new length: {new_length}')
-                padded = silence1 + audio + silence2  # Adding silence after the audio
-                padded.export(item, format='wav')
-
     @staticmethod
     def make_folders(root):
-        all_dir = [dir for root, dir, file in os.walk(root)]
-
-        all_dir = all_dir[0]
+        all_dir = [dir.name for dir in pathlib.Path(root).glob('*') if dir.name not in ['Training','Validation']]
         try:
-            os.mkdir(os.path.join(root,'Training'))
-        except FileExistsError:
-            all_dir.remove('Training')
+            pathlib.Path(os.path.join(root,'Training')).mkdir(parents=True, exist_ok=True)
+        except FileExistsError: #this shouldnt happen with parents=true but it does
+            pass
         try:
-            os.mkdir(os.path.join(root,'Validation'))
+            pathlib.Path(os.path.join(root,'Validation')).mkdir(parents=True, exist_ok=True)
         except FileExistsError:
-            all_dir.remove('Validation')
+            pass
         print(all_dir)
         return all_dir
 
@@ -136,29 +131,27 @@ class nn_data:
         random.seed(30)
         for dir in self.all_labels:
             try:
-                os.mkdir(os.path.join(root,'Training',dir))
+                pathlib.Path(os.path.join(root,'Training',dir)).mkdir(parents=True, exist_ok=True)
             except FileExistsError:
                 pass
             try:
-                os.mkdir(os.path.join(root,'Validation',dir))
+                pathlib.Path(os.path.join(root,'Validation',dir)).mkdir(parents=True, exist_ok=True)
             except FileExistsError:
                 pass
             label_dir = os.path.join(root,dir)
-            all_files = [file for root, dir, file in os.walk(label_dir)]
-            all_files = all_files[0]
-            all_files = [file for file in all_files if file[-3:]=='png']
+            all_files = [file for file in pathlib.Path(label_dir).glob('**/*.png')]
             random.seed(30)
-            samp_length = int(len(all_files)*0.25)
+            samp_length = int(len(all_files)*0.2)
             samp = random.sample(all_files,samp_length)
             if len(all_files)!= 0:
                 for file in tqdm(all_files):
                     if file in samp:
-                        old_dir = os.path.join(root,dir,file)
-                        new_dir = os.path.join(root,'Validation',dir,file)
+                        old_dir = os.path.join(root,dir,file.name)
+                        new_dir = os.path.join(root,'Validation',dir,file.name)
                         shutil.move(old_dir,new_dir)
                     else:
-                        old_dir = os.path.join(root,dir,file)
-                        new_dir = os.path.join(root,'Training',dir,file)
+                        old_dir = os.path.join(root,dir,file.name)
+                        new_dir = os.path.join(root,'Training',dir,file.name)
                         shutil.move(old_dir,new_dir)
         self.train_path = os.path.join(root,'Training')
         self.validation_path = os.path.join(root,'Validation')
