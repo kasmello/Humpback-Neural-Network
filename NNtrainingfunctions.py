@@ -2,7 +2,6 @@ import torch
 import pathlib
 import wandb
 import ssl
-import timm
 import time
 import os
 import platform
@@ -18,6 +17,7 @@ from sklearn.metrics import classification_report, confusion_matrix, ConfusionMa
 from ignite.contrib.handlers import create_lr_scheduler_with_warmup
 from datetime import datetime
 from NNclasses import Net, CNNet
+from NNfunctions import find_file, get_model_from_name
 from ignite.handlers import EarlyStopping
 
 
@@ -65,50 +65,65 @@ def train_nn(DATA, **train_options):
     warmup = round(epochs/4)
     if warmup < 2: warmup=2
     rest = epochs-warmup
-    if lr_decay: scheduler = create_lr_scheduler_with_warmup(lr_decay(optimizer,T_max=rest),
+   
+    if lr_decay=='cosineAN': 
+        scheduler = create_lr_scheduler_with_warmup(lsr.CosineAnnealingLR(optimizer,T_max=rest),
                         warmup_start_value = lr/warmup,
                         warmup_end_value = lr,
                         warmup_duration=warmup)
+    elif lr_decay=='cosineANW':
+        scheduler = create_lr_scheduler_with_warmup(lsr.CosineAnnealingWarmRestarts(optimizer,T_0=5),
+                        warmup_start_value = lr/warmup,
+                        warmup_end_value = lr,
+                        warmup_duration=warmup)
+    else:
+        lr_decay=None
     pathlib.Path(f'Models/{name}').mkdir(parents=True, exist_ok=True)
     
     total_time = 0
     patience=2
     prev_score = 100
     for epoch in tqdm(range(epochs), position=0, leave=True):
-        net.train()
-        if lr_decay: scheduler(None)
-        print({'lr': optimizer.param_groups[0]["lr"]})
-        for i, batch in enumerate(tqdm(DATA.all_training, position=0, leave=True)):
-            start = time.time()
-            x, y = load_batch_to_device(batch)
-            x.requires_grad = True
-            net.zero_grad()
-            # sets gradients at 0 after each batch
-            output = F.log_softmax(net(x), dim=1)
-            # calculate how wrong we are
-            loss = loss_f(output, y)
-            loss.backward()  # backward propagation
-            torch.nn.utils.clip_grad_norm_(net.parameters(), 1)
-            optimizer.step()
-            pause = time.time()
-            total_time += pause-start
-            if i % (3200//len(x)) == 0 and i > 0:
-                net.eval()
-                check_training_accuracy(DATA, net)
-                
-                wandb.log({'Time taken': round(total_time,2)})
-                
-        net.eval()
-        final_layer = epoch == epochs - 1
-        torch.save(net.state_dict(), f'Models/{name}/{name}-{epoch}.nn')
-        validate_model(DATA, net, loss.item(), final_layer)
-        if prev_score - loss.item() < 0.01:
-            patience -= 1
-            print(f'Patience now at {patience}')
-        else:
-            prev_score = loss.item()
-            patience=2
-        if patience == 0:
+        try:
+            net.train()
+            if lr_decay: scheduler(None)
+            print({'lr': optimizer.param_groups[0]["lr"]})
+            for i, batch in enumerate(tqdm(DATA.all_training, position=0, leave=True)):
+                start = time.time()
+                x, y = load_batch_to_device(batch)
+                x.requires_grad = True
+                net.zero_grad()
+                # sets gradients at 0 after each batch
+                output = F.log_softmax(net(x), dim=1)
+                # calculate how wrong we are
+                loss = loss_f(output, y)
+                loss.backward()  # backward propagation
+                torch.nn.utils.clip_grad_norm_(net.parameters(), 1)
+                optimizer.step()
+                pause = time.time()
+                total_time += pause-start
+                if i % (3200//len(x)) == 0 and i > 0:
+                    net.eval()
+                    check_training_accuracy(DATA, net)
+                    
+                    wandb.log({'Time taken': round(total_time,2)})
+                    
+            net.eval()
+            final_layer = epoch == epochs - 1
+            torch.save(net.state_dict(), f'Models/{name}/{name}_{epoch}.nn')
+            validate_model(DATA, net, loss.item(), final_layer)
+            if prev_score - loss.item() < 0.01:
+                patience -= 1
+                print(f'Patience now at {patience}')
+            else:
+                prev_score = loss.item()
+                patience=2
+            if patience == 0:
+                break
+        except KeyboardInterrupt:   
+            file_path = f'training_in_progress/{name}_{epoch}_{i}.nn'
+            torch.save(net.state_dict(), file_path)
+            print(f'Keyboard Interrupt detected. Saving current file as {file_path}')
             break
     wandb.finish() 
 
@@ -167,6 +182,24 @@ def validate_model(DATA, net, loss, final_layer):
             disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels = DATA.all_labels)
             disp.plot()
             plt.show()
+            plt.close()
+
+def load_from_recovery(net_name):
+    """
+    will check the training_progress_folder to see if any files are in there
+    if yes, will ask user if they want to load
+    """
+    pathlib.Path('training_in_progress').mkdir(parents=True,exist_ok=True)
+    architecture = net_name.split('_')[0]
+    if not bool(pathlib.Path('training_in_progress').glob(f'{architecture}*.nn')):
+        print(f'No supporting models for the f{architecture} architecture detected')
+        return None
+    print('Several recovery models detected')
+    model_path = find_file('training_in_progress',f'{architecture}*.nn')
+    return model_path
+    
+    
+
 
 def run_model(DATA,net_name,lr,wd,momentum,epochs, optimm='sgd', lr_decay=None):
     try:
@@ -174,6 +207,7 @@ def run_model(DATA,net_name,lr,wd,momentum,epochs, optimm='sgd', lr_decay=None):
     except requests.ConnectionError:
         print('Cannot connect to the internet, disabling online mode for WANDB')
         os.environ["WANDB_MODE"]='dryrun'
+    # recovery_model_path = load_from_recovery(net_name)
     
     params_str = ''
     if lr:
@@ -185,10 +219,15 @@ def run_model(DATA,net_name,lr,wd,momentum,epochs, optimm='sgd', lr_decay=None):
     if optimm:
         params_str += f' optimm={optimm}'
     if lr_decay:
-        params_str += f' lr_decay={lr_decay}'
+        params_str += f' lrdecay={lr_decay}'
+    params_str += f' batch_size={DATA.batch_size}'
+    special_indicator = ''
     if not wandb.run: #If this ain't a sweep
-        special_indicator = input('Input special indicator for the NN name for saving. Blank to leave as default')
-        wandb.init(project='{fnet_name}', name=params_str, entity="kasmello")
+        special_indicator = '_'
+        while '_' in special_indicator:
+            special_indicator = input('Input special indicator for the NN name for saving. Blank to leave as default\n')
+            if '_' in special_indicator: print("ERROR: cannot use '_' in special indicator\n")
+        wandb.init(project=net_name.split('_')[0],name=params_str, entity="kasmello",resume="allow")
 
 
     if optimm == 'sgd':
@@ -198,46 +237,7 @@ def run_model(DATA,net_name,lr,wd,momentum,epochs, optimm='sgd', lr_decay=None):
         optimm = optim.AdamW
         momentum=None
 
-    if lr_decay=='cosineAN':
-        lr_decay = lsr.CosineAnnealingLR
-
-    elif lr_decay=='cosineANW':
-        lr_decay = lsr.CosineAnnealingWarmRestarts
-    else:
-        lr_decay = None
 
     model = get_model_from_name(net_name,len(DATA.all_labels))  
     train_nn(DATA, lr=lr, wd=wd, epochs=epochs, optimizer=optimm, net=model, lbl=f'{net_name}_{params_str}_{special_indicator}',
                                         momentum=momentum,lr_decay=lr_decay)
-
-def get_model_from_name(model_name,num_labels):
-    if model_name[:3].lower()=='net':
-        return Net(num_labels).to(device)
-
-    elif model_name[:5].lower()=='cnnet':
-        return CNNet(num_labels).to(device)
-
-    elif model_name[:8].lower()=='resnet18':
-        model = models.resnet18(pretrained=True)
-        model.conv1 = nn.Conv2d(
-            1, 64, kernel_size=7, stride=2, padding=3, bias=False)
-        num_ftrs = model.fc.in_features
-        model.fc = nn.Linear(num_ftrs, num_labels)
-        model = model.to(device)
-        return model
-
-    elif model_name[:5].lower()=='vgg16':
-        model = models.vgg16(pretrained=True)
-        first_conv_layer = [nn.Conv2d(
-            1, 3, kernel_size=3, stride=1, padding=1, dilation=1, groups=1, bias=True)]
-        first_conv_layer.extend(list(model.features))
-        model.features = nn.Sequential(*first_conv_layer)
-        #print(model) to look at structure
-        model.classifier.add_module('7', nn.ReLU())
-        model.classifier.add_module('8', nn.Dropout(p=0.5, inplace=False))
-        model.classifier.add_module('9', nn.Linear(1000, num_labels))
-        model = model.to(device)
-        return model
-
-    elif model_name[:3].lower()=='vit':
-        return timm.create_model('vit_deit_small_distilled_patch16_224',pretrained=True, num_classes=num_labels, in_chans=1).to(device)
