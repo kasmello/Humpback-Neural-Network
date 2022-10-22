@@ -64,9 +64,7 @@ def save_image(Z, state,label):
     folder_path = os.path.join(ROOT,state,label)
     pathlib.Path(folder_path).mkdir(parents=True, exist_ok=True)
     save_name = f'{label}-{progress_table.get(label,0)+1}.png'
-    plt.imsave(os.path.join(folder_path,save_name), Z, cmap='gray')
-    # if state=='dirty':
-    #     print(f'SAVED {save_name}')    
+    plt.imsave(os.path.join(folder_path,save_name), Z)
 
 def pad_start_and_end(start,dur, sample_rate):
     segment_dur = 2.7 * sample_rate
@@ -84,14 +82,6 @@ def pad_start_and_end(start,dur, sample_rate):
     end = start + segment_dur
     return math.floor(start), math.floor(end)
 
-def normalise_waveform(wav):
-    mean = wav.mean()
-    std = wav.std()
-    wav = (wav-mean)/std
-    return wav
-    
-
-
 def extract_wav(wav, sample_rate, start, dur):
     start, end = pad_start_and_end(start,dur, sample_rate)
     wav = wav[:,start:end+1]
@@ -102,6 +92,7 @@ def extract_wav(wav, sample_rate, start, dur):
     # plt.xlabel('frequency [Hz]')
     # plt.ylabel('PSD [V**2/Hz]')
     # plt.show()
+    # plt.close()
     # num_channels, num_frames = wav.shape
     # time_axis = torch.arange(0, num_frames) / sample_rate
     NFFT=1024
@@ -110,14 +101,15 @@ def extract_wav(wav, sample_rate, start, dur):
     Pxx = Pxx[(freqs >= 50) & (freqs <= 3000)]
     freqs = freqs[(freqs >= 50) & (freqs <= 3000)]
     Z = normalise(Pxx)
-    return Z
+    return Z, Pxx
 
 def grab_spectogram(wav_dir):
     wavform, sample_rate = torchaudio.load(wav_dir)
-    clean_wavform = nr.reduce_noise(y=wavform, sr=sample_rate, time_mask_smooth_ms=64, stationary=False)
+    clean_wavform = nr.reduce_noise(y=wavform, sr=sample_rate, n_fft=1024, prop_decrease=0.4, time_mask_smooth_ms=64, stationary=False)
     return wavform, clean_wavform, sample_rate
 
 def load_in_progress():
+    global progress_table
     with open('progress.csv','r') as progress_file:
         all_lines = progress_file.read().splitlines()
         for line in all_lines:
@@ -133,11 +125,12 @@ def get_selection_table_name(filepath):
     return filepath.split('/')[-1]
 
 def write_progress_table():
+    global progress_table
     with open('progress.csv','w') as progress_file:
         for row, value in progress_table.items():
             progress_file.write(f"{row},{value}\n")
 
-def run_through_file(filename, dt, progress_table,region_name=None):
+def run_through_file(filename, dt, region_name=None):
     """
     runs through 1 whole selection table
     """
@@ -145,6 +138,7 @@ def run_through_file(filename, dt, progress_table,region_name=None):
     clean_wavform = None
     wavform = None
     sample_rate = 0
+    global progress_table
     if region_name: progress_table[filename] = progress_table.get(filename,0)
     for row in tqdm(range(len(dt))):
         wav_dir = dt[row]['Begin Path']
@@ -159,11 +153,12 @@ def run_through_file(filename, dt, progress_table,region_name=None):
             wavstring = wav_dir
             wavform, clean_wavform, sample_rate = grab_spectogram(wav_dir)
         for index, wav in enumerate([wavform, clean_wavform]):
-            Z = extract_wav(wav, sample_rate, start, dur)
+            Z, Pxx = extract_wav(wav, sample_rate, start, dur)
             Z = resize(Z, (224,224),anti_aliasing=False)
-            plt.imshow(Z, cmap='gray')
             if index == 0:
                 save_image(Z, 'dirty',label)
+                save_image(Pxx,'training',label)
+
                 if region_name:
                     progress_table[label] = progress_table.get(label,0) + 1
                     progress_table[region_name] = progress_table.get(region_name,0) + 1
@@ -177,6 +172,7 @@ def run_through_file(filename, dt, progress_table,region_name=None):
 
 def wav_to_spec():
     load_file = False
+    global progress_table
     if os.path.exists('progress.csv'):
         load_in_progress()
         load_file=True
@@ -206,7 +202,7 @@ def wav_to_spec():
                 with open(file,'r',encoding='iso-8859-1') as selection_table:
                     dt = list(csv.DictReader(selection_table,delimiter='\t'))
             
-            progress_table = run_through_file(filename, dt, progress_table,region_name)
+            progress_table = run_through_file(filename, dt, region_name)
                     
     
    
