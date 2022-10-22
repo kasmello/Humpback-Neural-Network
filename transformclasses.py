@@ -4,19 +4,13 @@ import warnings
 import torch
 import numpy as np
 import torch.nn as nn
-from collections.abc import Sequence
 import tensorflow as tf
+import colorednoise as cn
+import matplotlib.pyplot as plt
 from tensorflow_addons.image import sparse_image_warp
 warnings.filterwarnings("ignore", category=UserWarning) 
 tf.config.experimental.set_visible_devices([], 'GPU')
 
-# __all__ just exports the below things if the whole module is called xD
-__all__ = [ 
-    "TimeWarp",
-    "FreqMask",
-    "TimeMask",
-    "normalise"
-]
 
 class TimeWarp(nn.Module):
     def __init__(self,p=0.2, T=70):
@@ -99,26 +93,39 @@ class TimeMask(nn.Module):
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(p={self.p})(T={self.T})(Masks={self.masks})"
 
-class PinkNoise(nn.Module):
-    def __init__(self, p=0.2):
+class AddPinkNoise(nn.Module):
+    def __init__(self, p=0.2,power=0.2):
         super().__init__()
         self.p = p
+        self.power = power
 
     def forward(self, img):
         if random.random() > self.p:
             return img
-        
-        for img in range(len(img[0])):
-            pass
-        return 1/np.where(img[0] == 0, float('inf'), np.sqrt(f)/2)
+        power = random.uniform(0,self.power)
+        pink = generate_pink_noise(power=power)
+        pink_spectrogram = pink.resize(img[0].shape, anti_aliasing=False)
+        img = img + pink_spectrogram
+
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(p={self.p})"
 
+class Normalise_Spectrogram(nn.Module):
+    def __init__(self):
+        super().__init__()
 
+    def forward(self,img):
+        img[0] = normalise(img[0])
 
-def normalise(img):
-    img = 10 * np.log10(img)
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}"
+
+def convert_to_db(img):
+    return 10 * np.log10(img)
+
+def normalise(img,convert=True):
+    if convert: img = convert_to_db(img)
     img = np.flipud(img)
     max_box = img.max()
     for i in range(len(img)):
@@ -130,4 +137,12 @@ def normalise(img):
     img = img - img.min()
     img = img / img.max()
     return img.astype('float32')
+
+def generate_pink_noise(beta = 1,sample_rate=6000,duration=2.7,NFFT=1024, power = 0.2):
+    samples = int(sample_rate*duration)
+    arr = cn.powerlaw_psd_gaussian(beta, samples) * power
+    Pxx, freqs, bins, im = plt.specgram(arr, Fs=sample_rate, NFFT=NFFT, noverlap=NFFT/2,
+        window=np.hanning(NFFT))
+    Pxx = Pxx[(freqs >= 50) & (freqs <= 3000)]
+    return Pxx
         
