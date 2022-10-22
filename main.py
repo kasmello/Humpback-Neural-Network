@@ -23,32 +23,12 @@ def find_root():
     simple function to return string of data folder
     """
     if platform.system() == 'Darwin':  # MAC
-        return '/Volumes/Macintosh HD/Users/karmel/Desktop/Training/Humpback/clean'
+        return '/Volumes/Macintosh HD/Users/karmel/Desktop/Training/Humpback/training'
     elif platform.system() == 'Windows':
-        return 'C://Users/Karmel 0481098535/Desktop/Humpback/clean'
+        return 'C://Users/Karmel 0481098535/Desktop/Humpback/training'
 
 ROOT = find_root()
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
-
-def find_file(path,search_string):
-    """
-    find file with specific extension
-    input:
-        extension - string of extension (e.g. csv)
-    output:
-        str of file path
-    """
-    all_files = sorted(pathlib.Path(path).glob(search_string))
-    ask_list = []
-    for index, file_path_obj in enumerate(all_files):
-        file_path = file_path_obj.as_posix()
-        name = file_path.split('/')[-1]
-        ask_list.append([f'{index}: {name}',file_path])
-    ask_str = ''
-    for item in ask_list:
-        ask_str += item[0]+'\n'
-    index_for_model = input(f'Type number to select a file: 0 to {len(ask_list)-1}\n{ask_str}')
-    return ask_list[int(index_for_model)][1]
 
 def load_model_and_dict():
     try:
@@ -97,7 +77,7 @@ if __name__ == '__main__':
             name='vit'
             optimm='sgd'
             lr_decay = None
-            run_model(name,lr,wd,momentum,epochs, optimm, lr_decay)
+            run_model(DATA,name,lr,wd,momentum,epochs, optimm, lr_decay)
 
         elif option == '3':
             DATA.test_transform()
@@ -119,7 +99,7 @@ if __name__ == '__main__':
             name='net'
             optimm='adamw'
             lr_decay = None
-            run_model(name,lr,wd,momentum,epochs, optimm, lr_decay)
+            run_model(DATA,name,lr,wd,momentum,epochs, optimm, lr_decay)
 
         elif option == '7':
             lr=0.01
@@ -129,7 +109,7 @@ if __name__ == '__main__':
             name='cnnet'
             optimm='sgd'
             lr_decay = None
-            run_model(name,lr,wd,momentum,epochs, optimm, lr_decay)
+            run_model(DATA,name,lr,wd,momentum,epochs, optimm, lr_decay)
 
         elif option == '8':
             lr=0.001
@@ -139,7 +119,7 @@ if __name__ == '__main__':
             name='resnet18'
             optimm='sgd'
             lr_decay = 'cosineAN'
-            run_model(name,lr,wd,momentum,epochs, optimm, lr_decay)
+            run_model(DATA,name,lr,wd,momentum,epochs, optimm, lr_decay)
 
         elif option == '9':
             lr=0.001
@@ -149,7 +129,7 @@ if __name__ == '__main__':
             name='vgg16'
             optimm='sgd'
             lr_decay = 'cosineAN'
-            run_model(name,lr,wd,momentum,epochs, optimm, lr_decay)
+            run_model(DATA,name,lr,wd,momentum,epochs, optimm, lr_decay)
 
         elif option == '10':
             MODEL_PATH = load_model_and_dict()
@@ -160,5 +140,9 @@ if __name__ == '__main__':
 
         elif option == '12':
             wavform, clean, sample_rate = grab_spectogram('Test Wavs/20090617040001.wav')
-            plt.plot(wavform[0][0:8000])
-            plt.show()
+            for wav in wavform, clean:
+                plt.plot(wav[0][0:8000])
+                plt.show()
+                plt.close()
+                print('SNR:')
+                print(signaltonoise_dB(wav[0]))
