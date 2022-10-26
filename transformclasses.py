@@ -7,6 +7,7 @@ import torch.nn as nn
 import tensorflow as tf
 import colorednoise as cn
 import matplotlib.pyplot as plt
+from skimage.transform import resize
 from tensorflow_addons.image import sparse_image_warp
 warnings.filterwarnings("ignore", category=UserWarning) 
 tf.config.experimental.set_visible_devices([], 'GPU')
@@ -94,7 +95,7 @@ class TimeMask(nn.Module):
         return f"{self.__class__.__name__}(p={self.p})(T={self.T})(Masks={self.masks})"
 
 class AddPinkNoise(nn.Module):
-    def __init__(self, p=0.2,power=0.2):
+    def __init__(self, p=0.2,power=1):
         super().__init__()
         self.p = p
         self.power = power
@@ -104,45 +105,54 @@ class AddPinkNoise(nn.Module):
             return img
         power = random.uniform(0,self.power)
         pink = generate_pink_noise(power=power)
-        pink_spectrogram = pink.resize(img[0].shape, anti_aliasing=False)
-        img = img + pink_spectrogram
+        pink = normalise(pink,fix_range=False,convert=False)
+        pink = resize(pink,(img.shape[1],img.shape[2]), anti_aliasing=False)
+        pink = pink * power
+        img_layer = img[0].detach().numpy()
+        img[0] = torch.Tensor(np.where(img_layer >pink,img_layer,pink))
+        return img
 
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(p={self.p})"
 
 class Normalise_Spectrogram(nn.Module):
-    def __init__(self):
+    def __init__(self, convert=False, normalise=False):
         super().__init__()
+        self.convert=convert
+        self.normalise=normalise
 
     def forward(self,img):
-        img[0] = normalise(img[0])
+        img[0] = torch.Tensor(normalise(img[0],convert=self.convert, normalise=self.normalise))
+        return img
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}"
+        return f"{self.__class__.__name__}(Convert={self.convert})(Normalise={self.normalise})"
 
-def convert_to_db(img):
-    return 10 * np.log10(img)
+def bring_out_more_noise(img):
+    img = np.sqrt(img)
+    return img
 
-def normalise(img,convert=True):
-    if convert: img = convert_to_db(img)
+def normalise(img,convert=True, fix_range=True):
+    if convert: img = bring_out_more_noise(img)
     img = np.flipud(img)
-    max_box = img.max()
-    for i in range(len(img)):
-        for j in range(len(img[i])):
-            if img[i][j] > max_box-5:
-                img[i][j] = max_box - 5
-            elif img[i][j] < max_box-30:
-                img[i][j] = max_box-30
+    if fix_range:
+        max_box = img.max()
+        for i in range(len(img)):
+            for j in range(len(img[i])):
+                if img[i][j] > max_box-5:
+                    img[i][j] = max_box - 5
+                elif img[i][j] < max_box-30:
+                    img[i][j] = max_box-30
     img = img - img.min()
     img = img / img.max()
     return img.astype('float32')
 
-def generate_pink_noise(beta = 1,sample_rate=6000,duration=2.7,NFFT=1024, power = 0.2):
+def generate_pink_noise(beta = 1,sample_rate=6000,duration=2.7,NFFT=1024, power =1):
     samples = int(sample_rate*duration)
-    arr = cn.powerlaw_psd_gaussian(beta, samples) * power
+    arr = cn.powerlaw_psd_gaussian(beta, samples) 
     Pxx, freqs, bins, im = plt.specgram(arr, Fs=sample_rate, NFFT=NFFT, noverlap=NFFT/2,
         window=np.hanning(NFFT))
-    Pxx = Pxx[(freqs >= 50) & (freqs <= 3000)]
+    Pxx = Pxx[(freqs >= 50) & (freqs <= 3000)]* power
     return Pxx
         

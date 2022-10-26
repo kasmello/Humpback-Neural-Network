@@ -55,12 +55,14 @@ while choosing:
         print('\nBYE')
         choosing = False
     elif choice == '2':
+        print('Chosen 2')
         for txt_files in [humpback, minke]:
             for file_path in txt_files:
                 df = pd.read_table(file_path)
                 df.to_excel(file_path.as_posix()[:-3]+'xlsx',index=False)
 
     elif choice == '3':
+        print('Chosen 3')
         for txt_files in [humpback, minke]:
             for file_path in txt_files:
                 if file_path.as_posix().split('/')[-1][:2] == '._':
@@ -71,6 +73,7 @@ while choosing:
                 df.to_csv(file_path.as_posix(), sep="\t", index=False)
 
     else:
+        print(f'Chose {choice}')
         for txt_files in [humpback, minke]:
             for file_path in txt_files:
                 with open(file_path, 'rb') as file:

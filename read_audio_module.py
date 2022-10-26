@@ -15,6 +15,8 @@ from random import sample
 from skimage.transform import resize
 from transformclasses import normalise
 
+np.seterr(all='raise')
+
 selection_table_locations = [
     '/HumpbackDetect/Humpback Units/Selection Tables/',
     '/HumpbackDetect/Minke Boings/Chosen Selection Tables/'
@@ -64,7 +66,7 @@ def save_image(Z, state,label):
     folder_path = os.path.join(ROOT,state,label)
     pathlib.Path(folder_path).mkdir(parents=True, exist_ok=True)
     save_name = f'{label}-{progress_table.get(label,0)+1}.png'
-    plt.imsave(os.path.join(folder_path,save_name), Z)
+    plt.imsave(os.path.join(folder_path,save_name), Z, cmap='gray')
 
 def pad_start_and_end(start,dur, sample_rate):
     segment_dur = 2.7 * sample_rate
@@ -84,28 +86,17 @@ def pad_start_and_end(start,dur, sample_rate):
 
 def extract_wav(wav, sample_rate, start, dur):
     start, end = pad_start_and_end(start,dur, sample_rate)
-    wav = wav[:,start:end+1]
-    # waveform = waveform.numpy()
-    # (S, f) = plt.psd(waveform[0], Fs=sample_rate)
-    # plt.semilogy(f, S)
-    # plt.xlim([0, 100])
-    # plt.xlabel('frequency [Hz]')
-    # plt.ylabel('PSD [V**2/Hz]')
-    # plt.show()
-    # plt.close()
-    # num_channels, num_frames = wav.shape
-    # time_axis = torch.arange(0, num_frames) / sample_rate
+    cropped_wav = wav[0,start:end]
     NFFT=1024
-    Pxx, freqs, bins, im = plt.specgram(wav[0], Fs=sample_rate, NFFT=NFFT, noverlap=NFFT/2,
-    window=np.hanning(NFFT))
+    Pxx, freqs, bins, im = plt.specgram(cropped_wav, Fs=sample_rate, NFFT=NFFT, noverlap=NFFT/2,
+    window=np.hanning(NFFT),scale='dB',mode='psd')
     Pxx = Pxx[(freqs >= 50) & (freqs <= 3000)]
     freqs = freqs[(freqs >= 50) & (freqs <= 3000)]
-    Z = normalise(Pxx)
-    return Z, Pxx
+    return Pxx
 
-def grab_spectogram(wav_dir):
+def grab_wavform(wav_dir):
     wavform, sample_rate = torchaudio.load(wav_dir)
-    clean_wavform = nr.reduce_noise(y=wavform, sr=sample_rate, n_fft=1024, prop_decrease=0.4, time_mask_smooth_ms=64, stationary=False)
+    clean_wavform = nr.reduce_noise(y=wavform, sr=sample_rate, n_fft=1024, prop_decrease=1, time_constant_s=2.7,time_mask_smooth_ms=64,stationary=False)
     return wavform, clean_wavform, sample_rate
 
 def load_in_progress():
@@ -151,14 +142,32 @@ def run_through_file(filename, dt, region_name=None):
                 continue #iterating to the correct row
         if wav_dir != wavstring:
             wavstring = wav_dir
-            wavform, clean_wavform, sample_rate = grab_spectogram(wav_dir)
+            try:
+                wavform, clean_wavform, sample_rate = grab_wavform(wav_dir)
+            except FloatingPointError as e:
+                print(e)
+                progress_table[label] = progress_table.get(label,0) + 1
+                progress_table[region_name] = progress_table.get(region_name,0) + 1
+                progress_table['Selection Row'] = progress_table.get('Selection Row', 0) + 1
+                progress_table[filename] = progress_table.get(filename,0) + 1
+                write_progress_table()
+                continue
         for index, wav in enumerate([wavform, clean_wavform]):
-            Z, Pxx = extract_wav(wav, sample_rate, start, dur)
+            try:
+                Pxx = extract_wav(wav, sample_rate, start, dur)
+            except FloatingPointError as e:
+                print(e)
+                progress_table[label] = progress_table.get(label,0) + 1
+                progress_table[region_name] = progress_table.get(region_name,0) + 1
+                progress_table['Selection Row'] = progress_table.get('Selection Row', 0) + 1
+                progress_table[filename] = progress_table.get(filename,0) + 1
+                write_progress_table()
+                break
+
+            Z = normalise(Pxx,convert=True,fix_range=False)
             Z = resize(Z, (224,224),anti_aliasing=False)
             if index == 0:
                 save_image(Z, 'dirty',label)
-                save_image(Pxx,'training',label)
-
                 if region_name:
                     progress_table[label] = progress_table.get(label,0) + 1
                     progress_table[region_name] = progress_table.get(region_name,0) + 1

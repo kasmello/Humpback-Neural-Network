@@ -3,9 +3,10 @@ import torch.nn as nn
 import pathlib
 import numpy as np
 import csv
+import timm
 import math
 import platform
-from read_audio_module import extract_wav, grab_spectogram
+from read_audio_module import extract_wav, grab_wavform
 from scipy.io import wavfile
 from tqdm import tqdm
 from collections import deque
@@ -126,7 +127,7 @@ def process_and_predict(sound, dict_list, model, index_dict, start_time):
     update_sound = {'correct': 0, 'wrong': 0}
     update_blank = {'correct': 0, 'wrong': 0}
     update_table = []
-    wavform, clean_wavform, sample_rate = grab_spectogram(sound)
+    wavform, clean_wavform, sample_rate = grab_wavform(sound)
     len_of_track = len(clean_wavform[0])
     dur = int(2.7 * sample_rate)  # in seconds
     sounds_in_this_current_window = deque()

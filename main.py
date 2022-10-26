@@ -10,7 +10,8 @@ from datetime import datetime
 from NNfunctions import *
 from NNtrainingfunctions import *
 from NNclasses import nn_data
-from read_audio_module import grab_spectogram
+from read_audio_module import grab_wavform
+from transformclasses import generate_pink_noise, normalise
 
 DATA = None
 MODEL_PATH = None
@@ -23,9 +24,9 @@ def find_root():
     simple function to return string of data folder
     """
     if platform.system() == 'Darwin':  # MAC
-        return '/Volumes/Macintosh HD/Users/karmel/Desktop/Training/Humpback/training'
+        return '/Volumes/Macintosh HD/Users/karmel/Desktop/Training/Humpback/dirty'
     elif platform.system() == 'Windows':
-        return 'C://Users/Karmel 0481098535/Desktop/Humpback/training'
+        return 'C://Users/Karmel 0481098535/Desktop/Humpback/dirty'
 
 ROOT = find_root()
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
@@ -139,10 +140,28 @@ if __name__ == '__main__':
             validate_model(DATA,model,None,True)
 
         elif option == '12':
-            wavform, clean, sample_rate = grab_spectogram('Test Wavs/20090617040001.wav')
+            wavform, clean, sample_rate = grab_wavform('Test Wavs/20090617040001.wav')
             for wav in wavform, clean:
                 plt.plot(wav[0][0:8000])
                 plt.show()
                 plt.close()
                 print('SNR:')
                 print(signaltonoise_dB(wav[0]))
+                NFFT=1024
+            Pxx, freqs, bins, im = plt.specgram(wavform[0][0:int(sample_rate*2.7)], Fs=sample_rate, NFFT=NFFT, noverlap=NFFT/2,
+                window=np.hanning(NFFT))
+            Pxx = Pxx[(freqs >= 50) & (freqs <= 3000)]
+            Pxx = normalise(Pxx,pink,convert=False,fix_range=False)
+            Pxx = resize(Pxx, (224,224),anti_aliasing=False)
+            print(Pxx)
+            plt.imshow(Pxx)
+            plt.show()
+            plt.close()
+            pink = generate_pink_noise(power=1)
+            pink = normalise(pink,convert=False,fix_range=False)
+            pink = resize(pink, (224,224),anti_aliasing=False)
+            print(pink)
+            plt.imshow(pink+Pxx)
+            plt.show()
+            plt.close()
+            

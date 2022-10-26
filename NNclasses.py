@@ -34,37 +34,31 @@ class nn_data:
         self.all_labels = nn_data.make_folders(root)
         self.all_labels.sort()
         self.batch_size=batch_size
-        self.stratify_sample(root)
-        self.grab_dataset(batch_size)
-        self.save_label_dict()
         self.train_transform = transforms.Compose([
-            AddPinkNoise(p=0.2,power=0.4),
-            Normalise_Spectrogram(),
-            transforms.Resize(224),
             transforms.Grayscale(num_output_channels=1),
             transforms.ToTensor(),
+            AddPinkNoise(p=0.3,power=1), 
             TimeWarp(p=0.2,T=50),
             FreqMask(p=0.2, F=20),
             TimeMask(p=0.2, T=20),
         ])
 
-        self.test_transform = transforms.Compose([
-            AddPinkNoise(p=1,power=0.4),
-            Normalise_Spectrogram(),
-            transforms.Resize(224),
+        self.transform_all = transforms.Compose([
             transforms.Grayscale(num_output_channels=1),
             transforms.ToTensor(),
+            AddPinkNoise(p=1,power=1), 
             TimeWarp(p=1,T=50),
             FreqMask(p=1, F=20),
             TimeMask(p=1, T=20),
         ])
 
-        self.v_transform = ransforms.Compose([
-            Normalise_Spectrogram(),
-            transforms.Resize(224),
+        self.v_transform = transforms.Compose([
             transforms.Grayscale(num_output_channels=1),
             transforms.ToTensor(),
         ])
+        self.stratify_sample(root)
+        self.grab_dataset(batch_size)
+        self.save_label_dict()
 
     def save_label_dict(self):
         with open(f'index_to_label.csv','w') as file:
@@ -80,7 +74,6 @@ class nn_data:
 
 
     def grab_dataset(self, batch_size):
-
         train_folder = datasets.ImageFolder(self.train_path,transform=self.train_transform)
         self.all_training = torch.utils.data.DataLoader(train_folder,
                                               batch_size=batch_size,
@@ -108,14 +101,14 @@ class nn_data:
             plt.show()
             plt.close()
             # stat = ImageStat.Stat(img)
-            example = self.test_transform(img)
+            example = self.transform_all(img)
             plt.imshow(example[0], cmap='gray')
             plt.show()
             plt.close()
 
     @staticmethod
     def make_folders(root):
-        all_dir = [dir.name for dir in pathlib.Path(root).glob('*') if dir.name not in ['Training','Validation']]
+        all_dir = [dir.name for dir in pathlib.Path(root).glob('*') if dir.name not in ['Training','Validation','.DS_Store']]
         try:
             pathlib.Path(os.path.join(root,'Training')).mkdir(parents=True, exist_ok=True)
         except FileExistsError: #this shouldnt happen with parents=true but it does
