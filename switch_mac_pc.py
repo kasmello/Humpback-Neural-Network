@@ -35,21 +35,22 @@ a = {
     3: sort_all_txt,
 }
 
-if platform.system()=='Windows':
-    humpback = pathlib.Path('D:/HumpbackDetect/Humpback Units/Selection Tables/').glob('*.txt')
-    minke = pathlib.Path('D:/HumpbackDetect/Minke Boings/Chosen Selection Tables/').glob('*.txt')
-    # minke = pathlib.Path('D:/HumpbackDetect/Minke Boings/3187 IMOS WA NW SNR4/Selection Tables/').glob('*.txt')
-    # minke2 = pathlib.Path('D:/HumpbackDetect/Minke Boings/3334 1011 WAIMOS Dampier SNR007/Selection Tables/').glob('*.txt')
-    
-else:
-    humpback = pathlib.Path('/Volumes/HD/HumpbackDetect/Humpback Units/Selection Tables/').glob('*.txt')
-    minke = pathlib.Path('/Volumes/HD/HumpbackDetect/Minke Boings/Chosen Selection Tables/').glob('*.txt')
-    # minke = pathlib.Path('/Volumes/HD/HumpbackDetect/Minke Boings/3187 IMOS WA NW SNR4/Selection Tables/').glob('*.txt')
-    # minke2 = pathlib.Path('/Volumes/HD/HumpbackDetect/Minke Boings/3334 1011 WAIMOS Dampier SNR007/Selection Tables/').glob('*.txt')
-    # testing = pathlib.Path('/Volumes/KARMEL TEST/Selection Tables/').glob('*.txt')
+
 
 choosing = True
 while choosing:
+    if platform.system()=='Windows':
+        humpback = pathlib.Path('D:/HumpbackDetect/Humpback Units/Selection Tables/').glob('*.txt')
+        minke = pathlib.Path('D:/HumpbackDetect/Minke Boings/Chosen Selection Tables/').glob('*.txt')
+        # minke = pathlib.Path('D:/HumpbackDetect/Minke Boings/3187 IMOS WA NW SNR4/Selection Tables/').glob('*.txt')
+        # minke2 = pathlib.Path('D:/HumpbackDetect/Minke Boings/3334 1011 WAIMOS Dampier SNR007/Selection Tables/').glob('*.txt')
+        
+    else:
+        humpback = pathlib.Path('/Volumes/HD/HumpbackDetect/Humpback Units/Selection Tables/').glob('*.txt')
+        minke = pathlib.Path('/Volumes/HD/HumpbackDetect/Minke Boings/Chosen Selection Tables/').glob('*.txt')
+        # minke = pathlib.Path('/Volumes/HD/HumpbackDetect/Minke Boings/3187 IMOS WA NW SNR4/Selection Tables/').glob('*.txt')
+        # minke2 = pathlib.Path('/Volumes/HD/HumpbackDetect/Minke Boings/3334 1011 WAIMOS Dampier SNR007/Selection Tables/').glob('*.txt')
+        # testing = pathlib.Path('/Volumes/KARMEL TEST/Selection Tables/').glob('*.txt')
     choice = input('Select input:\n0: mac_to_pc\n1: pc_to_mac\n2: txt to xlsx\n3: Sort by Begin time and renumber\nOther: exit\n')
     if choice not in ['0','1','2','3']:
         print('\nBYE')
@@ -75,11 +76,14 @@ while choosing:
     else:
         print(f'Chose {choice}')
         for txt_files in [humpback, minke]:
-            for file_path in txt_files:
-                with open(file_path, 'rb') as file:
-                    all_text = file.read()
-                all_text = all_text.decode('iso-8859-1')
-                new_text = a[int(choice)](all_text)
-                new_text = other_fixes(new_text)
-                with open(file_path, 'w') as file:
-                    file.write(new_text)
+            try:
+                for file_path in txt_files:
+                    with open(file_path, 'rb') as file:
+                        all_text = file.read()
+                    all_text = all_text.decode('iso-8859-1')
+                    new_text = a[int(choice)](all_text)
+                    new_text = other_fixes(new_text)
+                    with open(file_path, 'w') as file:
+                        file.write(new_text)
+            except PermissionError:
+                continue
