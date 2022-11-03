@@ -18,7 +18,6 @@ from ignite.contrib.handlers import create_lr_scheduler_with_warmup
 from datetime import datetime
 from NNclasses import Net, CNNet
 from NNfunctions import find_file, get_model_from_name
-from ignite.handlers import EarlyStopping
 
 
 
@@ -27,6 +26,8 @@ ssl._create_default_https_context = ssl._create_unverified_context
 
 device = torch.device("cpu" if platform.system()=='Windows'
                                 else "mps")
+
+original_patience = 5
 
 def extract_f1_score(DATA, dict):
     data = [[category, dict[category]['f1-score']] for category in DATA.label_dict.values()]
@@ -56,6 +57,7 @@ def train_nn(DATA, **train_options):
     momentum=train_options['momentum']
     wd=train_options['wd']
     lr_decay=train_options['lr_decay']
+    pink = train_options['pink']
     name = lbl
     if momentum:
         optimizer = optimizer(net.parameters(), lr=lr, momentum=momentum, weight_decay=wd)
@@ -81,13 +83,15 @@ def train_nn(DATA, **train_options):
     pathlib.Path(f'Models/{name}').mkdir(parents=True, exist_ok=True)
     
     total_time = 0
-    patience=2
+    patience=original_patience
     prev_score = 100
     for epoch in tqdm(range(epochs), position=0, leave=True):
         try:
             net.train()
             if lr_decay: scheduler(None)
             print({'lr': optimizer.param_groups[0]["lr"]})
+            time_taken_too_long = False
+            time_taken_this_epoch = 0
             for i, batch in enumerate(tqdm(DATA.all_training, position=0, leave=True)):
                 start = time.time()
                 x, y = load_batch_to_device(batch)
@@ -101,30 +105,41 @@ def train_nn(DATA, **train_options):
                 torch.nn.utils.clip_grad_norm_(net.parameters(), 1)
                 optimizer.step()
                 pause = time.time()
-                total_time += pause-start
+                time_taken_this_epoch += pause-start
                 if i % (3200//len(x)) == 0 and i > 0:
                     net.eval()
                     check_training_accuracy(DATA, net)
-                    
+                    total_time += time_taken_this_epoch
                     wandb.log({'Time taken': round(total_time,2)})
+                if time_taken_this_epoch >= 3600: #over an hour:
+                    time_taken_too_long = True
+                    break
                     
             net.eval()
             final_layer = epoch == epochs - 1
-            torch.save(net.state_dict(), f'Models/{name}/{name}_{epoch}.nn')
-            validate_model(DATA, net, loss.item(), final_layer)
-            if prev_score - loss.item() < 0.01:
+            torch.save(net.state_dict(), f'Models/{name}/{name}_{epoch}.pth')
+            loss_number = loss.item()
+
+            if prev_score - loss_number < 0.01:
                 patience -= 1
                 print(f'Patience now at {patience}')
             else:
-                prev_score = loss.item()
-                patience=2
-            if patience == 0:
+                prev_score = loss_number
+            if patience == 0 or time_taken_too_long:
+                wandb.finish()
+                validate_model(DATA, net, loss_number, True)
                 break
+            validate_model(DATA, net, loss_number, final_layer)
+
         except KeyboardInterrupt:   
-            file_path = f'training_in_progress/{name}_{epoch}_{i}.nn'
-            torch.save(net.state_dict(), file_path)
-            print(f'Keyboard Interrupt detected. Saving current file as {file_path}')
+            validate_model(DATA, net, loss_number, True)
+            wandb.finish()
             break
+            # file_path = f'training_in_progress/{name}_{epoch}_{i}.pth'
+            # torch.save(net.state_dict(), file_path)
+            # print(f'Keyboard Interrupt detected. Saving current file as {file_path}')
+            # break
+        
     wandb.finish() 
 
 
@@ -191,17 +206,17 @@ def load_from_recovery(net_name):
     """
     pathlib.Path('training_in_progress').mkdir(parents=True,exist_ok=True)
     architecture = net_name.split('_')[0]
-    if not bool(pathlib.Path('training_in_progress').glob(f'{architecture}*.nn')):
+    if not bool(pathlib.Path('training_in_progress').glob(f'{architecture}*.pth')):
         print(f'No supporting models for the f{architecture} architecture detected')
         return None
     print('Several recovery models detected')
-    model_path = find_file('training_in_progress',f'{architecture}*.nn')
+    model_path = find_file('training_in_progress',f'{architecture}*.pth')
     return model_path
     
     
 
 
-def run_model(DATA,net_name,lr,wd,momentum,epochs, optimm='sgd', lr_decay=None):
+def run_model(DATA,net_name,lr,wd,momentum,epochs, pink, optimm='adamw', lr_decay=None):
     try:
         requests.get('https://www.google.com')
     except requests.ConnectionError:
@@ -239,5 +254,5 @@ def run_model(DATA,net_name,lr,wd,momentum,epochs, optimm='sgd', lr_decay=None):
 
 
     model = get_model_from_name(net_name,len(DATA.all_labels))  
-    train_nn(DATA, lr=lr, wd=wd, epochs=epochs, optimizer=optimm, net=model, lbl=f'{net_name}_{params_str}_{special_indicator}',
+    train_nn(DATA, lr=lr, wd=wd, epochs=epochs, optimizer=optimm, net=model, pink=pink, lbl=f'{net_name}_{params_str}_{special_indicator}',
                                         momentum=momentum,lr_decay=lr_decay)

@@ -38,7 +38,7 @@ def load_model_and_dict():
         if not os.path.exists(LABEL_DICT_PATH):
             raise FileNotFoundError('index to label csv not found!')
         model_chosen = find_file('Models','*')
-        model_path = find_file(model_chosen,'*.nn')
+        model_path = find_file(model_chosen,'*.pth')
         return model_path
     except FileNotFoundError as e:
         print(e)
@@ -60,7 +60,9 @@ if __name__ == '__main__':
                     \n9: Train and Test VGG16\
                     \n10: Load model\
                     \n11: Test loaded model on Validation Data\
-                    \n12: Waveform/Spectrogram playground\n')
+                    \n12: Test Data Efficient Transformer\
+                    \n13: Waveform/Spectrogram playground\
+                    \n14: Run through audio without prediction\n')
 
         if option == '0':
             print('BYE')
@@ -76,7 +78,7 @@ if __name__ == '__main__':
             epochs=6
             momentum=0.9
             name='vit'
-            optimm='sgd'
+            optimm='adamw'
             lr_decay = None
             run_model(DATA,name,lr,wd,momentum,epochs, optimm, lr_decay)
 
@@ -113,13 +115,13 @@ if __name__ == '__main__':
             run_model(DATA,name,lr,wd,momentum,epochs, optimm, lr_decay)
 
         elif option == '8':
-            lr=0.001
+            lr=0.0003
             wd=0.03
             epochs=10
             momentum=0.9
             name='resnet18'
-            optimm='sgd'
-            lr_decay = 'cosineAN'
+            optimm='adamw'
+            lr_decay = None
             run_model(DATA,name,lr,wd,momentum,epochs, optimm, lr_decay)
 
         elif option == '9':
@@ -140,6 +142,16 @@ if __name__ == '__main__':
             validate_model(DATA,model,None,True)
 
         elif option == '12':
+            lr=0.0003
+            wd=0.03
+            epochs=6
+            momentum=0.9
+            name='deit-vit'
+            optimm='adamw'
+            lr_decay = None
+            run_model(DATA,name,lr,wd,momentum,epochs, optimm, lr_decay)
+
+        elif option == '13':
             wavform, clean, sample_rate = grab_wavform('Test Wavs/20090617040001.wav')
             for wav in wavform, clean:
                 plt.plot(wav[0][0:8000])
@@ -148,20 +160,21 @@ if __name__ == '__main__':
                 print('SNR:')
                 print(signaltonoise_dB(wav[0]))
                 NFFT=1024
-            Pxx, freqs, bins, im = plt.specgram(wavform[0][0:int(sample_rate*2.7)], Fs=sample_rate, NFFT=NFFT, noverlap=NFFT/2,
-                window=np.hanning(NFFT))
-            Pxx = Pxx[(freqs >= 50) & (freqs <= 3000)]
-            Pxx = normalise(Pxx,pink,convert=False,fix_range=False)
-            Pxx = resize(Pxx, (224,224),anti_aliasing=False)
-            print(Pxx)
-            plt.imshow(Pxx)
-            plt.show()
-            plt.close()
-            pink = generate_pink_noise(power=1)
-            pink = normalise(pink,convert=False,fix_range=False)
-            pink = resize(pink, (224,224),anti_aliasing=False)
-            print(pink)
-            plt.imshow(pink+Pxx)
-            plt.show()
-            plt.close()
-            
+                Pxx, freqs, bins, im = plt.specgram(wav[0][0:int(sample_rate*2.7)], Fs=sample_rate, NFFT=NFFT, noverlap=NFFT/2,
+                    window=np.hanning(NFFT),mode='psd',scale='dB')
+                Pxx = Pxx[(freqs >= 50) & (freqs <= 3000)]
+                Pxx = normalise(Pxx,convert=True,fix_range=False)
+                Pxx = resize(Pxx, (224,224),anti_aliasing=False)
+                plt.imshow(Pxx)
+                plt.show()
+                plt.close()
+                pink = generate_pink_noise(power=1)
+                pink = normalise(pink,convert=False,fix_range=False)
+                pink = resize(pink, (224,224),anti_aliasing=False)
+                print(pink)
+                plt.imshow(pink+Pxx)
+                plt.show()
+                plt.close()
+
+        elif option == '14':
+            run_through_audio(None, LABEL_DICT_PATH)

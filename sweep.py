@@ -7,14 +7,14 @@ if __name__=='__main__':
 
 
     if platform.system() == 'Darwin':  # MAC
-        root = '/Volumes/Macintosh HD/Users/karmel/Desktop/Training/Humpback/clean'
+        root = '/Volumes/Macintosh HD/Users/karmel/Desktop/Training/Humpback/dirty'
     elif platform.system() == 'Windows':
-        root = 'C://Users/Karmel 0481098535/Desktop/Humpback'
+        root = 'C://Users/Karmel 0481098535/Desktop/Humpback/dirty'
     print('Sweep modo!!!')
     wandb.init(resume="allow")
     config=wandb.config
-    DATA = nn_data(root, batch_size = config.batch_size)    
+    DATA = nn_data(root, batch_size = config.batch_size,pink=config.pink)    
     
     run_model(DATA=DATA, net_name=config.architecture, lr=config.lr, wd=config.wd, epochs=config.epochs, \
-                        momentum=config.momentum, lr_decay = config.lr_decay)
+                        lr_decay = config.lr_decay)
     

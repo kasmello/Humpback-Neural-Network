@@ -20,8 +20,10 @@ from torchvision import transforms, datasets
 from PIL import Image, ImageStat
 from pydub import AudioSegment
 from transformclasses import *
-import timm
-from timm.models.layers import to_2tuple,trunc_normal_
+from functools import partial
+from timm.models.vision_transformer import VisionTransformer, _cfg
+from timm.models.registry import register_model
+from timm.models.layers import trunc_normal_
 
 # torch.multiprocessing.set_sharing_strategy('file_system')
 
@@ -30,19 +32,29 @@ from timm.models.layers import to_2tuple,trunc_normal_
 # from spec_augment_pytorch import spec_augment #give credits where
 class nn_data:
 
-    def __init__(self, root, batch_size):
+    def __init__(self, root, batch_size,pink='true'):
         self.all_labels = nn_data.make_folders(root)
         self.all_labels.sort()
         self.batch_size=batch_size
-        self.train_transform = transforms.Compose([
-            transforms.Grayscale(num_output_channels=1),
-            transforms.ToTensor(),
-            AddPinkNoise(p=0.3,power=1), 
-            TimeWarp(p=0.2,T=50),
-            FreqMask(p=0.2, F=20),
-            TimeMask(p=0.2, T=20),
-        ])
+        if pink == 'true':
+            self.train_transform = transforms.Compose([
+                transforms.Grayscale(num_output_channels=1),
+                transforms.ToTensor(),
+                AddPinkNoise(p=0.3,power=1), 
+                TimeWarp(p=0.2,T=50),
+                FreqMask(p=0.2, F=20),
+                TimeMask(p=0.2, T=20),
+            ])
+        else:
+            self.train_transform = transforms.Compose([
+                transforms.Grayscale(num_output_channels=1),
+                transforms.ToTensor(),
+                TimeWarp(p=0.2,T=50),
+                FreqMask(p=0.2, F=20),
+                TimeMask(p=0.2, T=20),
+            ])
 
+        
         self.transform_all = transforms.Compose([
             transforms.Grayscale(num_output_channels=1),
             transforms.ToTensor(),
@@ -200,25 +212,18 @@ class Net(nn.Module):
         x = self.fc4(x)
         return x
 
-class HumpbackWhaleTransformer(nn.Module):
-    
-    def  __init__(self, num_labels=25, fstride=10, tstride=10, input_fdim=224, input_tdim=224):
-        super().__init__()
-        timm.models.vision_transformer.PatchEmbed = PatchEmbed
-        self.model = timm.create_model('vit_deit_small_distilled_patch16_224',pretrained=True, num_classes=num_labels, in_chans=1)
+def deit_base_patch16_224(num_classes, in_chans, pretrained=False):
+    model = VisionTransformer(
+        patch_size=16, embed_dim=768, depth=12, num_heads=12, mlp_ratio=4, qkv_bias=True,
+        norm_layer=partial(nn.LayerNorm, eps=1e-6))
+    model.default_cfg = _cfg()
+    if pretrained:
+        checkpoint = torch.hub.load_state_dict_from_url(
+            url="https://dl.fbaipublicfiles.com/deit/deit_base_patch16_224-b5f2ef4d.pth",
+            map_location="cpu", check_hash=True
+        )
+        model.load_state_dict(checkpoint["model"])
+        model.num_classes=num_classes
+        model.patch_embed.proj.in_channels = in_chans
 
-class PatchEmbed(nn.Module):
-    def __init__(self, img_size=224, patch_size=16, in_chans=1, embed_dim=768):
-        super().__init__()
-        img_size = to_2tuple(img_size)
-        patch_size = to_2tuple(patch_size)
-        num_patches = (img_size[1] // patch_size[1]) * (img_size[0] // patch_size[0])
-        self.img_size = img_size
-        self.patch_size = patch_size
-        self.num_patches = num_patches
-
-        self.proj = nn.Conv2d(in_chans, embed_dim, kernel_size=patch_size, stride=patch_size)
-
-    def forward(self, x):
-        x = self.proj(x).flatten(2).transpose(1, 2)
-        return x
+    return model

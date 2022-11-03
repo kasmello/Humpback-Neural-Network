@@ -110,6 +110,7 @@ class AddPinkNoise(nn.Module):
         pink = pink * power
         img_layer = img[0].detach().numpy()
         img[0] = torch.Tensor(np.where(img_layer >pink,img_layer,pink))
+        # img[0] = torch.Tensor(img_layer + pink)
         return img
 
 
@@ -152,7 +153,7 @@ def generate_pink_noise(beta = 1,sample_rate=6000,duration=2.7,NFFT=1024, power 
     samples = int(sample_rate*duration)
     arr = cn.powerlaw_psd_gaussian(beta, samples) 
     Pxx, freqs, bins, im = plt.specgram(arr, Fs=sample_rate, NFFT=NFFT, noverlap=NFFT/2,
-        window=np.hanning(NFFT))
+        window=np.hanning(NFFT),mode='psd',scale='dB')
     Pxx = Pxx[(freqs >= 50) & (freqs <= 3000)]* power
     return Pxx
         

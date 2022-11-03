@@ -89,14 +89,13 @@ def extract_wav(wav, sample_rate, start, dur):
     cropped_wav = wav[0,start:end]
     NFFT=1024
     Pxx, freqs, bins, im = plt.specgram(cropped_wav, Fs=sample_rate, NFFT=NFFT, noverlap=NFFT/2,
-    window=np.hanning(NFFT),scale='dB',mode='psd')
+    window=np.hanning(NFFT),mode='psd',scale='dB')
     Pxx = Pxx[(freqs >= 50) & (freqs <= 3000)]
-    freqs = freqs[(freqs >= 50) & (freqs <= 3000)]
     return Pxx
 
 def grab_wavform(wav_dir):
     wavform, sample_rate = torchaudio.load(wav_dir)
-    clean_wavform = nr.reduce_noise(y=wavform, sr=sample_rate, n_fft=1024, prop_decrease=1, time_constant_s=2.7,time_mask_smooth_ms=64,stationary=False)
+    clean_wavform = nr.reduce_noise(y=wavform, sr=sample_rate, n_fft=1024, prop_decrease=0.8, time_constant_s=2.7,time_mask_smooth_ms=64,stationary=False)
     return wavform, clean_wavform, sample_rate
 
 def load_in_progress():
@@ -136,6 +135,8 @@ def run_through_file(filename, dt, region_name=None):
         start = dt[row]['Beg File Samp (samples)']
         dur = dt[row]['Sample Length (samples)']
         label = str(dt[row]['Code'])
+        if label in ['1a','','Fu','YSh','YS','FC','FP','V','Sqh','ll']:
+            continue
         label = switch_dictionary.get(label,label)
         if region_name:
             if row < progress_table[filename]:
@@ -177,6 +178,7 @@ def run_through_file(filename, dt, region_name=None):
             else:
                 save_image(Z, 'clean',label)
     return progress_table
+
                     
 
 def wav_to_spec():
@@ -190,7 +192,7 @@ def wav_to_spec():
         files = pathlib.Path(location).glob('*.txt')
         for file in files:
             filename = get_selection_table_name(file.as_posix())
-            if filename in ['t3152 Sep.txt'] or filename[0:2] == '._':
+            if filename in ['t3152 Sep.txt', '2845 August 13-16.txt'] or filename[0:2] == '._':
                 continue
             region_name = filename.split()[0]
             if load_file:

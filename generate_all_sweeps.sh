@@ -1,6 +1,6 @@
 #!/bin/bash
 
-all_nets=(vgg16 resnet18 vit)
+all_nets=(all)
 #var=$(date '+%d-%m-%Y')
 echo Hello, what would you like to call this project?
 read projname
