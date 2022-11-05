@@ -40,7 +40,7 @@ class nn_data:
             self.train_transform = transforms.Compose([
                 transforms.Grayscale(num_output_channels=1),
                 transforms.ToTensor(),
-                AddPinkNoise(p=0.3,power=1), 
+                AddPinkNoise(p=0.2,power=1), 
                 TimeWarp(p=0.2,T=50),
                 FreqMask(p=0.2, F=20),
                 TimeMask(p=0.2, T=20),

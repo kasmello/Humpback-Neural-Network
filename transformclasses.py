@@ -152,7 +152,7 @@ def normalise(img,convert=True, fix_range=True):
 def generate_pink_noise(beta = 1,sample_rate=6000,duration=2.7,NFFT=1024, power =1):
     samples = int(sample_rate*duration)
     arr = cn.powerlaw_psd_gaussian(beta, samples) 
-    Pxx, freqs, bins, im = plt.specgram(arr, Fs=sample_rate, NFFT=NFFT, noverlap=NFFT/2,
+    Pxx, freqs, bins, im = plt.specgram(arr, Fs=sample_rate, NFFT=NFFT, noverlap=int(NFFT/2),
         window=np.hanning(NFFT),mode='psd',scale='dB')
     Pxx = Pxx[(freqs >= 50) & (freqs <= 3000)]* power
     return Pxx

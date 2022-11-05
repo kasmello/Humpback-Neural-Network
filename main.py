@@ -150,7 +150,7 @@ if __name__ == '__main__':
             optimm='adamw'
             lr_decay = None
             pink='true'
-            run_model(DATA,name,lr,wd,momentum,epochs, True, optimm, lr_decay)
+            run_model(DATA,name,lr,wd,momentum,epochs, pink, optimm, lr_decay)
 
         elif option == '13':
             wavform, clean, sample_rate = grab_wavform('Test Wavs/20090617040001.wav')
