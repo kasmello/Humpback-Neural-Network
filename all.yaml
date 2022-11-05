@@ -12,7 +12,7 @@ parameters:
   wd:
     value: 0.03
   pink:
-    value: ['true','false']
+    values: ['true','false']
   architecture:
     values: ['vit','resnet','vgg16','deit']
   epochs:
