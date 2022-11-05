@@ -107,7 +107,7 @@ def queue_noises(sounds_for_this_file,dict_list,end,i,sample_rate):
     done = False
     while not done:
         done=True
-        if i < len(dict_list):
+        if i > len(dict_list):
             break
         if  int(dict_list[i]['Beg File Samp (samples)']) <= end:
             done=False
@@ -147,9 +147,12 @@ def process_and_predict(sound, dict_list, model, index_dict, start_time):
         start = t
         curr_start_time = t + start_time
         end = (t + dur)
-        if i < len(dict_list) and dict_list[i]['Begin Path'] == sound:
-            sounds_in_this_current_window, i = queue_noises(sounds_in_this_current_window,dict_list,end,i,sample_rate)
-            sounds_in_this_current_window = dequeue_noises(sounds_in_this_current_window,start,sample_rate)
+        try:
+            if i < len(dict_list):
+                sounds_in_this_current_window, i = queue_noises(sounds_in_this_current_window,dict_list,end,i,sample_rate)
+                sounds_in_this_current_window = dequeue_noises(sounds_in_this_current_window,start,sample_rate)
+        except IndexError:
+            pass
         print(f'START SELECTION: {round(start/sample_rate,2)} END SELECTION: {round(end/sample_rate,2)}')
         Z = extract_wav(clean_wavform, sample_rate,start, dur)
         Z = normalise(Z,convert=True,fix_range=False)

@@ -235,6 +235,8 @@ def run_model(DATA,net_name,lr,wd,momentum,epochs, pink, optimm='adamw', lr_deca
         params_str += f' optimm={optimm}'
     if lr_decay:
         params_str += f' lrdecay={lr_decay}'
+    if pink:
+        params_str += f' pink_noise'
     params_str += f' batch_size={DATA.batch_size}'
     special_indicator = ''
     if not wandb.run: #If this ain't a sweep
@@ -254,5 +256,5 @@ def run_model(DATA,net_name,lr,wd,momentum,epochs, pink, optimm='adamw', lr_deca
 
 
     model = get_model_from_name(net_name,len(DATA.all_labels))  
-    train_nn(DATA, lr=lr, wd=wd, epochs=epochs, optimizer=optimm, net=model, pink=pink, lbl=f'{net_name}_{params_str}_{special_indicator}',
-                                        momentum=momentum,lr_decay=lr_decay)
+    train_nn(DATA, lr=lr, wd=wd, epochs=epochs, optimizer=optimm, net=model, lbl=f'{net_name}_{params_str}_{special_indicator}',
+                                        momentum=momentum,lr_decay=lr_decay,pink=pink)

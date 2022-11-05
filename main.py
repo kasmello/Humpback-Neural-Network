@@ -69,7 +69,7 @@ if __name__ == '__main__':
             finished = True
 
         if option == '1':
-            DATA = nn_data(ROOT, batch_size=16)
+            DATA = nn_data(ROOT, batch_size=16, pink=True)
 
         elif option == '2':
             #use https://arxiv.org/pdf/2106.10270.pdf as reference
@@ -80,7 +80,7 @@ if __name__ == '__main__':
             name='vit'
             optimm='adamw'
             lr_decay = None
-            run_model(DATA,name,lr,wd,momentum,epochs, optimm, lr_decay)
+            run_model(DATA,name,lr,wd,momentum,epochs, True, optimm, lr_decay)
 
         elif option == '3':
             DATA.test_transform()
@@ -102,7 +102,7 @@ if __name__ == '__main__':
             name='net'
             optimm='adamw'
             lr_decay = None
-            run_model(DATA,name,lr,wd,momentum,epochs, optimm, lr_decay)
+            run_model(DATA,name,lr,wd,momentum,epochs, True, optimm, lr_decay)
 
         elif option == '7':
             lr=0.01
@@ -112,7 +112,7 @@ if __name__ == '__main__':
             name='cnnet'
             optimm='sgd'
             lr_decay = None
-            run_model(DATA,name,lr,wd,momentum,epochs, optimm, lr_decay)
+            run_model(DATA,name,lr,wd,momentum,epochs, True, optimm, lr_decay)
 
         elif option == '8':
             lr=0.0003
@@ -122,7 +122,7 @@ if __name__ == '__main__':
             name='resnet18'
             optimm='adamw'
             lr_decay = None
-            run_model(DATA,name,lr,wd,momentum,epochs, optimm, lr_decay)
+            run_model(DATA,name,lr,wd,momentum,epochs, True, optimm, lr_decay)
 
         elif option == '9':
             lr=0.001
@@ -132,7 +132,7 @@ if __name__ == '__main__':
             name='vgg16'
             optimm='sgd'
             lr_decay = 'cosineAN'
-            run_model(DATA,name,lr,wd,momentum,epochs, optimm, lr_decay)
+            run_model(DATA,name,lr,wd,momentum,epochs, True, optimm, lr_decay)
 
         elif option == '10':
             MODEL_PATH = load_model_and_dict()
@@ -149,7 +149,7 @@ if __name__ == '__main__':
             name='deit-vit'
             optimm='adamw'
             lr_decay = None
-            run_model(DATA,name,lr,wd,momentum,epochs, optimm, lr_decay)
+            run_model(DATA,name,lr,wd,momentum,epochs, True, optimm, lr_decay)
 
         elif option == '13':
             wavform, clean, sample_rate = grab_wavform('Test Wavs/20090617040001.wav')

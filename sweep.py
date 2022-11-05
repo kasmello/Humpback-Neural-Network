@@ -16,5 +16,4 @@ if __name__=='__main__':
     DATA = nn_data(root, batch_size = config.batch_size,pink=config.pink)    
     
     run_model(DATA=DATA, net_name=config.architecture, lr=config.lr, wd=config.wd, epochs=config.epochs, \
-                        lr_decay = config.lr_decay)
-    
+                        lr_decay = config.lr_decay, pink=config.pink)
