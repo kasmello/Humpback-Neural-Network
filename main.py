@@ -26,7 +26,7 @@ def find_root():
     if platform.system() == 'Darwin':  # MAC
         return '/Volumes/Macintosh HD/Users/karmel/Desktop/Training/Humpback/dirty'
     elif platform.system() == 'Windows':
-        return 'C://Users/Karmel 0481098535/Desktop/Humpback/dirty'
+        return 'C:/Users/Dylan Loo/Desktop/KARMELTINGS/dirty'
 
 ROOT = find_root()
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
@@ -149,6 +149,7 @@ if __name__ == '__main__':
             name='deit-vit'
             optimm='adamw'
             lr_decay = None
+            pink='true'
             run_model(DATA,name,lr,wd,momentum,epochs, True, optimm, lr_decay)
 
         elif option == '13':

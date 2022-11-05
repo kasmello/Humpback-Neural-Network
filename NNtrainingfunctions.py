@@ -27,7 +27,7 @@ ssl._create_default_https_context = ssl._create_unverified_context
 device = torch.device("cuda" if platform.system()=='Windows'
                                 else "mps")
 
-original_patience = 5
+original_patience = 4
 
 def extract_f1_score(DATA, dict):
     data = [[category, dict[category]['f1-score']] for category in DATA.label_dict.values()]
@@ -111,7 +111,7 @@ def train_nn(DATA, **train_options):
                     check_training_accuracy(DATA, net)
                     total_time += time_taken_this_epoch
                     wandb.log({'Time taken': round(total_time,2)})
-                if time_taken_this_epoch >= 3600: #over an hour:
+                if time_taken_this_epoch >= 900: #over half an hour:
                     time_taken_too_long = True
                     break
                     
@@ -126,14 +126,12 @@ def train_nn(DATA, **train_options):
             else:
                 prev_score = loss_number
             if patience == 0 or time_taken_too_long:
-                wandb.finish()
                 validate_model(DATA, net, loss_number, True)
                 break
             validate_model(DATA, net, loss_number, final_layer)
 
         except KeyboardInterrupt:   
             validate_model(DATA, net, loss_number, True)
-            wandb.finish()
             break
             # file_path = f'training_in_progress/{name}_{epoch}_{i}.pth'
             # torch.save(net.state_dict(), file_path)
@@ -196,7 +194,7 @@ def validate_model(DATA, net, loss, final_layer):
             cm = confusion_matrix(actual,pred, labels = DATA.all_labels)
             disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels = DATA.all_labels)
             disp.plot()
-            plt.show()
+            plt.show(block=False)
             plt.close()
 
 def load_from_recovery(net_name):

@@ -36,7 +36,7 @@ class nn_data:
         self.all_labels = nn_data.make_folders(root)
         self.all_labels.sort()
         self.batch_size=batch_size
-        if pink == 'true':
+        if pink == 'true' or pink:
             self.train_transform = transforms.Compose([
                 transforms.Grayscale(num_output_channels=1),
                 transforms.ToTensor(),
