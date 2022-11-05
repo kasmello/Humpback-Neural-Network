@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 import torchvision.models as models
 from NNclasses import Net, CNNet
 from transformclasses import normalise
-from hbad import calculate_energy
+from hbad import calculate_energy, calculate_energy_from_fft, calculate_noise_ratio
 
 device = torch.device("cpu" if platform.system()=='Windows'
                                 else "mps")
@@ -46,6 +46,8 @@ def read_in_csv_times(file):
         #     d['Selection'] = d.pop('\ufeffSelection')
         dict_list = []
         for i, row in enumerate(csv_dict):
+            if row['Begin Path'] != selection_stream_pair[file.name]:
+                break
             dict_list.append(pad_out_row(row, 2.7))
         return dict_list
 
@@ -105,6 +107,8 @@ def queue_noises(sounds_for_this_file,dict_list,end,i,sample_rate):
     done = False
     while not done:
         done=True
+        if i < len(dict_list):
+            break
         if  int(dict_list[i]['Beg File Samp (samples)']) <= end:
             done=False
             sounds_for_this_file.appendleft(dict_list[i])
@@ -132,11 +136,14 @@ def process_and_predict(sound, dict_list, model, index_dict, start_time):
         update_blank = {'correct': 0, 'wrong': 0}
         update_table = []
     wavform, clean_wavform, sample_rate = grab_wavform(sound)
+    no_box = []
+    box = []
     len_of_track = len(clean_wavform[0])
     dur = int(2.7 * sample_rate)  # in seconds
+    detection_dur = int(0.2*sample_rate)
     sounds_in_this_current_window = deque()
     detection_values = {} #key = category, #values = dict
-    for t in range(0,len_of_track - dur,int(0.2*sample_rate)):
+    for t in range(0,len_of_track - dur,detection_dur):
         start = t
         curr_start_time = t + start_time
         end = (t + dur)
@@ -147,12 +154,16 @@ def process_and_predict(sound, dict_list, model, index_dict, start_time):
         Z = extract_wav(clean_wavform, sample_rate,start, dur)
         Z = normalise(Z,convert=True,fix_range=False)
         Z = resize(Z, (224,224),anti_aliasing=False)
-        a1 = calculate_energy(clean_wavform[0][start:start+dur],lowcut=1,highcut=500,sample_rate=sample_rate)
-        a2 = calculate_energy(clean_wavform[0][start:start+dur],lowcut=501,highcut=1250,sample_rate=sample_rate)
-        a3 = calculate_energy(clean_wavform[0][start:start+dur],lowcut=1251,highcut=2990,sample_rate=sample_rate)
-        print(a1,a2,a3)
+        d1, d2 = calculate_energy_from_fft(clean_wavform[0][start:start+detection_dur],mid_point=1500,sample_rate=sample_rate)
+        if len(sounds_in_this_current_window) > 0:
+            box.append(calculate_noise_ratio(d1,d2))
+        else:
+            no_box.append(calculate_noise_ratio(d1,d2))
+        # a1 = calculate_energy(clean_wavform[0][start:start+dur],lowcut=1,highcut=500,sample_rate=sample_rate)
+        # a2 = calculate_energy(clean_wavform[0][start:start+dur],lowcut=501,highcut=1250,sample_rate=sample_rate)
+        # a3 = calculate_energy(clean_wavform[0][start:start+dur],lowcut=1251,highcut=2990,sample_rate=sample_rate)
         plt.imshow(Z,cmap='gray')
-        plt.axis('off')
+        plt.axis('on')
         plt.show(block=False)
         plt.pause(0.1)
         # plt.show()
@@ -204,7 +215,15 @@ def process_and_predict(sound, dict_list, model, index_dict, start_time):
 
                 detection_values[label_tensor[0]] = row
             print(f'Top 3: {label_tensor}, PERCENTS: {round(percents,2)}')
-    return update_sound, update_blank, update_table, start_time+len_of_track
+    fig, ax = plt.subplots()
+    ax.boxplot([no_box,box])
+    ax.set_xticklabels(['No Selection','Selection'])
+    plt.show()
+    plt.close()
+    if model:
+        return update_sound, update_blank, update_table, start_time+len_of_track
+    else:
+        return None, None, None, start_time+len_of_track
 
 def run_through_audio(model_path, dict_path):
     index_dict = {}
@@ -225,8 +244,8 @@ def run_through_audio(model_path, dict_path):
             sound = load_all_sounds(table)
             dict_list = read_in_csv_times(table)
             update_sound, update_blank, update_table, start_time = process_and_predict(sound, dict_list, model, index_dict,start_time)
-            table_dict.extend(update_table)
             if model_path:
+                table_dict.extend(update_table)
                 for category in ['correct', 'wrong']:
                     score_sound[category] += update_sound[category]
                     score_blank[category] += update_blank[category]
