@@ -24,7 +24,7 @@ from NNfunctions import find_file, get_model_from_name
 ssl._create_default_https_context = ssl._create_unverified_context
 # torch.multiprocessing.set_sharing_strategy('file_system')
 
-device = torch.device("cpu" if platform.system()=='Windows'
+device = torch.device("cuda" if platform.system()=='Windows'
                                 else "mps")
 
 original_patience = 5

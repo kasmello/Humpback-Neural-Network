@@ -19,7 +19,7 @@ from NNclasses import Net, CNNet
 from transformclasses import normalise
 from hbad import calculate_energy, calculate_energy_from_fft, calculate_noise_ratio
 
-device = torch.device("cpu" if platform.system()=='Windows'
+device = torch.device("cuda" if platform.system()=='Windows'
                                 else "mps")
 
 selection_stream_pair = {'t3152 Sep.txt':'/Volumes/HD/HumpbackDetect/Humpback Units/t3152 981 RPS BHP Port Hedland SNR47/WAV/20120901000001.wav'}
