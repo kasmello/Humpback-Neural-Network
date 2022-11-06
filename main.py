@@ -69,7 +69,7 @@ if __name__ == '__main__':
             finished = True
 
         if option == '1':
-            DATA = nn_data(ROOT, batch_size=16, pink=True)
+            DATA = nn_data(ROOT, batch_size=32, pink=True)
 
         elif option == '2':
             #use https://arxiv.org/pdf/2106.10270.pdf as reference
@@ -115,7 +115,7 @@ if __name__ == '__main__':
             run_model(DATA,name,lr,wd,momentum,epochs, True, optimm, lr_decay)
 
         elif option == '8':
-            lr=0.0003
+            lr=0.0001
             wd=0.03
             epochs=10
             momentum=0.9

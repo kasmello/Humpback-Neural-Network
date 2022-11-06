@@ -4,11 +4,11 @@ method: grid
 entity: kasmello
 parameters:
   lr:
-    values: [0.0001,0.0004,0.0016]
+    values: [0.00005,0.0001,0.0002]
   batch_size:
-    values: [16,64]
+    value: 32
   lr_decay:
-    value: 'none'
+    values: ['none','cosineAN']
   wd:
     value: 0.03
   pink:
