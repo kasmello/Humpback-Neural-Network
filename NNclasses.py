@@ -90,13 +90,15 @@ class nn_data:
         self.all_training = torch.utils.data.DataLoader(train_folder,
                                               batch_size=batch_size,
                                               shuffle=True,
-                                              num_workers=0)
+                                              num_workers=np.where(platform.system()=="Windows",2,0),
+                                              pin_memory=True)
 
         validation_folder = datasets.ImageFolder(self.validation_path,transform=self.v_transform)
         self.all_validation = torch.utils.data.DataLoader(validation_folder,
                                               batch_size=50,
                                               shuffle=True,
-                                              num_workers=0)
+                                              num_workers=np.where(platform.system()=="Windows",2,0),
+                                              pin_memory=True)
         self.label_dict = {v: k for k, v in train_folder.class_to_idx.items()}
 
     def test_transform(self):

@@ -42,7 +42,7 @@ def log_images(images,pred,actual):
     wandb.log({'Image Table': table})
 
 def load_batch_to_device(batch):
-    x, y = batch[0].to(device), batch[1].to(device)
+    x, y = batch[0].to(device,non_blocking=True), batch[1].to(device,non_blocking=True)
     return x,y
 
 
@@ -116,7 +116,7 @@ def train_nn(DATA, **train_options):
             net.eval()
             final_layer = epoch == epochs - 1
             # torch.save(net.state_dict(), f'Models/{name}/{name}_{epoch}.pth')
-            if total_time >= 30:
+            if total_time >= 3000:
                 print('Model has exceeded an hour of training, ending!')
                 validate_model(DATA, net, 0, prev_score, True)
                 break
