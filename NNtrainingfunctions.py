@@ -87,12 +87,12 @@ def train_nn(DATA, **train_options):
     prev_score = 100
     for epoch in tqdm(range(epochs), position=0, leave=True):
         try:
-            net.train()
             if lr_decay: scheduler(None)
             print({'lr': optimizer.param_groups[0]["lr"]})
             time_taken_too_long = False
             time_taken_this_epoch = 0
             for i, batch in enumerate(tqdm(DATA.all_training, position=0, leave=True)):
+                net.train()
                 start = time.time()
                 x, y = load_batch_to_device(batch)
                 x.requires_grad = True
@@ -106,32 +106,30 @@ def train_nn(DATA, **train_options):
                 optimizer.step()
                 pause = time.time()
                 time_taken_this_epoch += pause-start
+                total_time += time_taken_this_epoch
                 if i % (3200//len(x)) == 0 and i > 0:
                     net.eval()
                     check_training_accuracy(DATA, net)
-                    total_time += time_taken_this_epoch
-                    wandb.log({'Time taken': round(total_time,2)})
-                if time_taken_this_epoch >= 750: #over 15 mins:
+                    wandb.log({'Time taken in epoch': round(time_taken_this_epoch,2),
+                    'Time Taken total': round(total_time,2)})
+                if total_time >= 3600: #over 15 mins:
+                    net.eval()
+                    check_training_accuracy(DATA, net)
                     time_taken_too_long = True
+                    print('Model has exceeded an hour of training, ending!')
                     break
                     
             net.eval()
             final_layer = epoch == epochs - 1
             # torch.save(net.state_dict(), f'Models/{name}/{name}_{epoch}.pth')
-            loss_number = loss.item()
-
-            if prev_score - loss_number < 0.01:
-                patience -= 1
-                print(f'Patience now at {patience}')
-            else:
-                prev_score = loss_number
-            if patience == 0 or time_taken_too_long:
-                validate_model(DATA, net, loss_number, True)
+            if time_taken_too_long:
+                validate_model(DATA, net, 0, prev_score, True)
                 break
-            validate_model(DATA, net, loss_number, final_layer)
+            else:
+                patience, prev_score = validate_model(DATA, net, patience, prev_score, final_layer)
 
         except KeyboardInterrupt:   
-            validate_model(DATA, net, loss_number, True)
+            validate_model(DATA, net, 0, prev_score, True)
             break
             # file_path = f'training_in_progress/{name}_{epoch}_{i}.pth'
             # torch.save(net.state_dict(), file_path)
@@ -148,15 +146,17 @@ def predict(data,net, num_batches=999999999):
         for i, batch_v in enumerate(data):
             x, y = load_batch_to_device(batch_v)
             output = F.log_softmax(net(x), dim=1)
+            loss = F.nll_loss(output,y)
+            loss_number = loss.item()
             for idx, e in enumerate(output):
                 pred.append(torch.argmax(e))
                 actual.append(y[idx])
             if i == num_batches-1 or i == len(data)-1:
-                return x, pred, actual
+                return x, pred, actual, loss_number
         
 
 def check_training_accuracy(DATA,net):
-    images, pred, actual = predict(DATA.all_training, net, 3)
+    images, pred, actual,loss_number = predict(DATA.all_training, net, 3)
     pred = DATA.inverse_encode(pred)
     actual = DATA.inverse_encode(actual)
     output = classification_report(actual, pred, output_dict=True)
@@ -164,14 +164,14 @@ def check_training_accuracy(DATA,net):
     precision = output['weighted avg']['precision']
     recall = output['weighted avg']['recall']
     result_dict = {'T Accuracy': accuracy,
-            'T Wgt Precision': precision, 'T Wgt Recall': recall}
+            'T Wgt Precision': precision, 'T Wgt Recall': recall, 'T Loss': loss_number}
     # print(result_dict)
     if wandb.run:
         wandb.log(result_dict)
 
 
-def validate_model(DATA, net, loss, final_layer):
-    images, pred, actual = predict(DATA.all_validation,net)
+def validate_model(DATA, net, patience, prev_score, final_layer):
+    images, pred, actual, loss_number = predict(DATA.all_validation,net)
     pred = DATA.inverse_encode(pred)
     actual = DATA.inverse_encode(actual)
     print('\n\n')
@@ -179,12 +179,17 @@ def validate_model(DATA, net, loss, final_layer):
     accuracy = output['accuracy']
     precision = output['weighted avg']['precision']
     recall = output['weighted avg']['recall']
-    result_dict = {'Loss': loss, 'V Accuracy': accuracy,
+    result_dict = {'V Loss': loss_number, 'V Accuracy': accuracy,
             'V Wgt Precision': precision, 'V Wgt Recall': recall}
     print(result_dict)
     if wandb.run:
         wandb.log(result_dict)
-    if final_layer:
+    if prev_score - loss_number < 0.03:
+        patience -= 1
+        print(f'Patience now at {patience}')
+    else:
+        prev_score = loss_number
+    if final_layer or patience == 0:
         print(classification_report(actual, pred))
         if wandb.run:
             log_images(images,pred[-len(images):],actual[-len(images):])
@@ -196,6 +201,7 @@ def validate_model(DATA, net, loss, final_layer):
             disp.plot()
             plt.show(block=False)
             plt.close()
+    return patience, prev_score
 
 def load_from_recovery(net_name):
     """

@@ -140,7 +140,7 @@ def process_and_predict(sound, dict_list, model, index_dict, start_time):
     box = []
     len_of_track = len(clean_wavform[0])
     dur = int(2.7 * sample_rate)  # in seconds
-    detection_dur = int(0.2*sample_rate)
+    detection_dur = int(0.5*sample_rate)
     sounds_in_this_current_window = deque()
     detection_values = {} #key = category, #values = dict
     for t in range(0,len_of_track - dur,detection_dur):
@@ -157,11 +157,11 @@ def process_and_predict(sound, dict_list, model, index_dict, start_time):
         Z = extract_wav(clean_wavform, sample_rate,start, dur)
         Z = normalise(Z,convert=True,fix_range=False)
         Z = resize(Z, (224,224),anti_aliasing=False)
-        d1, d2 = calculate_energy_from_fft(clean_wavform[0][start:start+detection_dur],mid_point=1500,sample_rate=sample_rate)
+        db = calculate_energy_from_fft(clean_wavform[0][start:start+detection_dur],low=50,high=1500,sample_rate=sample_rate)
         if len(sounds_in_this_current_window) > 0:
-            box.append(calculate_noise_ratio(d1,d2))
+            box.append(db)
         else:
-            no_box.append(calculate_noise_ratio(d1,d2))
+            no_box.append(db)
         # a1 = calculate_energy(clean_wavform[0][start:start+dur],lowcut=1,highcut=500,sample_rate=sample_rate)
         # a2 = calculate_energy(clean_wavform[0][start:start+dur],lowcut=501,highcut=1250,sample_rate=sample_rate)
         # a3 = calculate_energy(clean_wavform[0][start:start+dur],lowcut=1251,highcut=2990,sample_rate=sample_rate)

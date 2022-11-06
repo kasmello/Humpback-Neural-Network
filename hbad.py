@@ -23,13 +23,13 @@ def get_db(f,freq, low, high):
     db = 10 * np.log10(np.sum(abs(f[(freq>=low) & (freq<=high)])**2))
     return np.where(db<0,0,db)
 
-def calculate_energy_from_fft(wav, mid_point, sample_rate):
+def calculate_energy_from_fft(wav, low, high, sample_rate):
     try:
         wav = wav[0].numpy()
     except AttributeError:
         pass
-    low = 50
-    high = 3000
+    if low < 50: low= 50
+    if high > 3000: high = 3000
     shorttime = int(sample_rate/4) #quarter of a second
     temp_wav = wav[:shorttime]
     f = np.fft.fft(temp_wav)
@@ -37,9 +37,8 @@ def calculate_energy_from_fft(wav, mid_point, sample_rate):
     freq = freq[:len(freq)//2]
     f = f[:len(f)//2]
 
-    d1 = get_db(f,freq,low, mid_point)
-    d2 = get_db(f,freq,mid_point, high)
-    return d1,d2
+    db = get_db(f,freq,low, high)
+    return db
 
 def calculate_noise_ratio(d1,d2):
     try:
