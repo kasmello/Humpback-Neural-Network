@@ -113,8 +113,6 @@ def train_nn(DATA, **train_options):
                     wandb.log({'Time taken in epoch': round(time_taken_this_epoch,2),
                     'Time Taken total': round(total_time,2)})
                 if total_time >= 3600: #over 15 mins:
-                    net.eval()
-                    check_training_accuracy(DATA, net)
                     time_taken_too_long = True
                     print('Model has exceeded an hour of training, ending!')
                     break
