@@ -122,6 +122,8 @@ def train_nn(DATA, **train_options):
                 break
             else:
                 patience, prev_score = validate_model(DATA, net, patience, prev_score, final_layer)
+            if patience == 0:
+                break
 
         except KeyboardInterrupt:   
             validate_model(DATA, net, 0, prev_score, True)
