@@ -103,7 +103,7 @@ def train_nn(DATA, **train_options):
                 loss.backward()  # backward propagation
                 torch.nn.utils.clip_grad_norm_(net.parameters(), 1)
                 optimizer.step()
-                if i % (len(DATA.all_training)//4) == 0 and i > 0:
+                if i % (len(DATA.all_training)//2) == 0 and i > 0:
                     net.eval()
                     check_training_accuracy(DATA, net)
 
