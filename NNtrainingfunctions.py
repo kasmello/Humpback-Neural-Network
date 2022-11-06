@@ -103,7 +103,6 @@ def train_nn(DATA, **train_options):
                 loss.backward()  # backward propagation
                 torch.nn.utils.clip_grad_norm_(net.parameters(), 1)
                 optimizer.step()
-                print(total_time)
                 if i % (3200//len(x)) == 0 and i > 0:
                     net.eval()
                     check_training_accuracy(DATA, net)
@@ -117,7 +116,7 @@ def train_nn(DATA, **train_options):
             net.eval()
             final_layer = epoch == epochs - 1
             # torch.save(net.state_dict(), f'Models/{name}/{name}_{epoch}.pth')
-            if total_time >= 300:
+            if total_time >= 30:
                 print('Model has exceeded an hour of training, ending!')
                 validate_model(DATA, net, 0, prev_score, True)
                 break
