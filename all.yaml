@@ -8,7 +8,7 @@ parameters:
   batch_size:
     values: [16,64]
   lr_decay:
-    values: ['none','cosineAN']
+    value: 'none'
   wd:
     value: 0.03
   pink:
@@ -16,4 +16,4 @@ parameters:
   architecture:
     values: ['vit','resnet18','vgg16','deit']
   epochs:
-    value: 20
+    value: 12
