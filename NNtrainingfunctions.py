@@ -89,11 +89,10 @@ def train_nn(DATA, **train_options):
         try:
             if lr_decay: scheduler(None)
             print({'lr': optimizer.param_groups[0]["lr"]})
-            time_taken_too_long = False
             time_taken_this_epoch = 0
+            start = time.time()
             for i, batch in enumerate(tqdm(DATA.all_training, position=0, leave=True)):
                 net.train()
-                start = time.time()
                 x, y = load_batch_to_device(batch)
                 x.requires_grad = True
                 net.zero_grad()
@@ -104,23 +103,22 @@ def train_nn(DATA, **train_options):
                 loss.backward()  # backward propagation
                 torch.nn.utils.clip_grad_norm_(net.parameters(), 1)
                 optimizer.step()
-                pause = time.time()
-                time_taken_this_epoch += pause-start
-                total_time += time_taken_this_epoch
+                print(total_time)
                 if i % (3200//len(x)) == 0 and i > 0:
                     net.eval()
                     check_training_accuracy(DATA, net)
-                    wandb.log({'Time taken in epoch': round(time_taken_this_epoch,2),
-                    'Time Taken total': round(total_time,2)})
-                if total_time >= 3600: #over 15 mins:
-                    time_taken_too_long = True
-                    print('Model has exceeded an hour of training, ending!')
-                    break
+
+            end = time.time()
+            time_taken_this_epoch += end-start
+            total_time += time_taken_this_epoch
+            wandb.log({'Time taken in epoch': round(time_taken_this_epoch,2),
+                    'Time Taken cumulative': round(total_time,2)})
                     
             net.eval()
             final_layer = epoch == epochs - 1
             # torch.save(net.state_dict(), f'Models/{name}/{name}_{epoch}.pth')
-            if time_taken_too_long:
+            if total_time >= 300:
+                print('Model has exceeded an hour of training, ending!')
                 validate_model(DATA, net, 0, prev_score, True)
                 break
             else:
