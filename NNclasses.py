@@ -18,7 +18,6 @@ from math import ceil
 from datetime import datetime
 from torchvision import transforms, datasets
 from PIL import Image, ImageStat
-from pydub import AudioSegment
 from transformclasses import *
 from functools import partial
 from timm.models.vision_transformer import VisionTransformer, _cfg
