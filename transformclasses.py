@@ -103,7 +103,7 @@ class AddPinkNoise(nn.Module):
     def forward(self, img):
         if random.random() > self.p:
             return img
-        power = random.uniform(0,self.power)
+        power = random.uniform(0.25,self.power)
         pink = generate_pink_noise(power=power)
         pink = normalise(pink,fix_range=False,convert=False)
         pink = resize(pink,(img.shape[1],img.shape[2]), anti_aliasing=False)

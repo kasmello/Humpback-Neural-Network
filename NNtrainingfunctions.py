@@ -27,7 +27,7 @@ ssl._create_default_https_context = ssl._create_unverified_context
 device = torch.device("cuda" if platform.system()=='Windows'
                                 else "mps")
 
-original_patience = 4
+original_patience = 3
 
 def extract_f1_score(DATA, dict):
     data = [[category, dict[category]['f1-score']] for category in DATA.label_dict.values()]
@@ -111,13 +111,13 @@ def train_nn(DATA, **train_options):
                     check_training_accuracy(DATA, net)
                     total_time += time_taken_this_epoch
                     wandb.log({'Time taken': round(total_time,2)})
-                if time_taken_this_epoch >= 900: #over half an hour:
+                if time_taken_this_epoch >= 750: #over 15 mins:
                     time_taken_too_long = True
                     break
                     
             net.eval()
             final_layer = epoch == epochs - 1
-            torch.save(net.state_dict(), f'Models/{name}/{name}_{epoch}.pth')
+            # torch.save(net.state_dict(), f'Models/{name}/{name}_{epoch}.pth')
             loss_number = loss.item()
 
             if prev_score - loss_number < 0.01:
