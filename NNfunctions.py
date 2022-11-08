@@ -25,6 +25,7 @@ device = torch.device("cuda" if platform.system()=='Windows'
 
 selection_stream_pair = {'t3152 Sep.txt':'/Volumes/HD/HumpbackDetect/Humpback Units/t3152 981 RPS BHP Port Hedland SNR47/WAV/20120901000001.wav'}
 
+
 def pad_out_row(row, segment_dur):
     dur = float(row['End Time (s)'])-float(row['Begin Time (s)'])
     if dur <= segment_dur:
