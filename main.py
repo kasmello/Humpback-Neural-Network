@@ -77,7 +77,7 @@ if __name__ == '__main__':
             wd=0.03
             epochs=6
             momentum=0.9
-            name='vit'
+            name='vit-base'
             optimm='adamw'
             lr_decay = None
             run_model(DATA,name,lr,wd,momentum,epochs, True, optimm, lr_decay)
@@ -146,7 +146,7 @@ if __name__ == '__main__':
             wd=0.03
             epochs=6
             momentum=0.9
-            name='vit-base'
+            name='vit-large'
             optimm='adamw'
             lr_decay = None
             pink='true'

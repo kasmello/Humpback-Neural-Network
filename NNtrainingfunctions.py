@@ -194,6 +194,7 @@ def test_model(DATA, net):
     print(result_dict)
     print(classification_report(actual, pred))
     if wandb.run:
+        wandb.log(result_dict)
         idx_images = random.sample(np.arange(0,len(images)),k=50)
         sample_images = [images[i] for i in idx_images]
         sample_pred = [pred[i] for i in idx_images]
