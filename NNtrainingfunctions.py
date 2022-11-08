@@ -27,7 +27,7 @@ ssl._create_default_https_context = ssl._create_unverified_context
 device = torch.device("cuda" if platform.system()=='Windows'
                                 else "mps")
 
-original_patience = 3
+original_patience = 8
 
 def extract_f1_score(DATA, dict):
     data = [[category, dict[category]['f1-score']] for category in DATA.label_dict.values()]
@@ -103,26 +103,28 @@ def train_nn(DATA, **train_options):
                 loss.backward()  # backward propagation
                 torch.nn.utils.clip_grad_norm_(net.parameters(), 1)
                 optimizer.step()
-                if i % (len(DATA.all_training)//2) == 0 and i > 0:
+                if (i+1) % (len(DATA.all_training)//2):
                     net.eval()
                     check_training_accuracy(DATA, net)
-
+                    if i+1 < len(DATA.all_training):
+                        patience, prev_score = validate_model(DATA, net, patience, prev_score, False)
+                    else:
+                        patience, prev_score = validate_model(DATA, net, patience, prev_score, True)
+                    if patience == 0:
+                        break
+            
             end = time.time()
             time_taken_this_epoch += end-start
             total_time += time_taken_this_epoch
-            wandb.log({'Time taken in epoch': round(time_taken_this_epoch,2),
-                    'Time Taken cumulative': round(total_time,2)})
+            wandb.log({'Time taken in epoch': round(time_taken_this_epoch,2)})
                     
             net.eval()
-            final_layer = epoch == epochs - 1
             # torch.save(net.state_dict(), f'Models/{name}/{name}_{epoch}.pth')
-            if total_time >= 3000:
-                print('Model has exceeded an hour of training, ending!')
-                validate_model(DATA, net, 0, prev_score, True)
-                break
-            else:
-                patience, prev_score = validate_model(DATA, net, patience, prev_score, final_layer)
             if patience == 0:
+                print('Patience reached 0, break!')
+                break
+            if total_time >= 3600:
+                print('Model has exceeded an hour of training, ending!')
                 break
 
         except KeyboardInterrupt:   

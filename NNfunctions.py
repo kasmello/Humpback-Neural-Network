@@ -15,6 +15,7 @@ from skimage.transform import resize
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
 import torchvision.models as models
+import unsupervised_vad as grab_sound_detection_areas
 from NNclasses import Net, CNNet
 from transformclasses import normalise
 from hbad import calculate_energy, calculate_energy_from_fft, calculate_noise_ratio
@@ -132,39 +133,33 @@ def dequeue_noises(sounds_for_this_file,start,sample_rate):
 def process_and_predict(sound, dict_list, model, index_dict, start_time):
     i = 0
     if model:
-        update_sound = {'correct': 0, 'wrong': 0}
-        update_blank = {'correct': 0, 'wrong': 0}
+        predicted = []
+        actual = []
         update_table = []
     wavform, clean_wavform, sample_rate = grab_wavform(sound)
-    no_box = []
-    box = []
-    len_of_track = len(clean_wavform[0])
+    vad_arr = grab_sound_detection_areas(wavform, sample_rate, 0.4)
+    #heckin plot some spectrograms here pls
+    len_of_track = len(wavform[0])
     dur = int(2.7 * sample_rate)  # in seconds
-    detection_dur = int(0.5*sample_rate)
+    detection_dur = int(0.025*sample_rate)
     sounds_in_this_current_window = deque()
     detection_values = {} #key = category, #values = dict
     for t in range(0,len_of_track - dur,detection_dur):
         start = t
         curr_start_time = t + start_time
-        end = (t + dur)
+        end = t + detection_dur
         try:
             if i < len(dict_list):
                 sounds_in_this_current_window, i = queue_noises(sounds_in_this_current_window,dict_list,end,i,sample_rate)
                 sounds_in_this_current_window = dequeue_noises(sounds_in_this_current_window,start,sample_rate)
         except IndexError:
             pass
+        if vad_arr[t] == 1:
+            pass
         print(f'START SELECTION: {round(start/sample_rate,2)} END SELECTION: {round(end/sample_rate,2)}')
-        Z = extract_wav(clean_wavform, sample_rate,start, dur)
+        Z = extract_wav(wavform, sample_rate,start, dur)
         Z = normalise(Z,convert=True,fix_range=False)
         Z = resize(Z, (224,224),anti_aliasing=False)
-        db = calculate_energy_from_fft(clean_wavform[0][start:start+detection_dur],low=50,high=1500,sample_rate=sample_rate)
-        if len(sounds_in_this_current_window) > 0:
-            box.append(db)
-        else:
-            no_box.append(db)
-        # a1 = calculate_energy(clean_wavform[0][start:start+dur],lowcut=1,highcut=500,sample_rate=sample_rate)
-        # a2 = calculate_energy(clean_wavform[0][start:start+dur],lowcut=501,highcut=1250,sample_rate=sample_rate)
-        # a3 = calculate_energy(clean_wavform[0][start:start+dur],lowcut=1251,highcut=2990,sample_rate=sample_rate)
         plt.imshow(Z,cmap='gray')
         plt.axis('on')
         plt.show(block=False)
@@ -173,30 +168,11 @@ def process_and_predict(sound, dict_list, model, index_dict, start_time):
         plt.close()
         if model:
             Z = torch.tensor([[Z]],device=device, dtype=torch.float32)
-            # energy_calculated = calculate_energy(clean_wavform[start:start+dur])
-            # if energy_calculated < 0.003:
-            #     print('Detected as Blank due to low energy')
-            #     if label_tensor[0] == 'Blank':
-            #         update_blank['correct'] += 1
-            #     else:
-            #         update_blank['wrong'] += 1
-            #     continue
             with torch.no_grad():
                 output = F.softmax(model(Z),dim=1)
             percents = torch.topk(output.flatten(), 3).values.cpu().numpy()
             tensor = torch.topk(output.flatten(), 3).indices.cpu().numpy()
             label_tensor = [index_dict[code] for code in tensor]
-            if len(sounds_in_this_current_window) == 0:
-                if label_tensor[0] == 'Blank':
-                    update_blank['correct'] += 1
-                else:
-                    update_blank['wrong'] += 1
-            else:
-                for item in sounds_in_this_current_window:
-                    if label_tensor[0] == item:
-                        update_sound['correct'] += 1
-                    else:
-                        update_sound['wrong'] += 1
             curr_start_seconds = curr_start_time/sample_rate
             if detection_values.get(label_tensor[0]):
                 dict_to_update = detection_values[label_tensor[0]]
@@ -224,34 +200,34 @@ def process_and_predict(sound, dict_list, model, index_dict, start_time):
     plt.show()
     plt.close()
     if model:
-        return update_sound, update_blank, update_table, start_time+len_of_track
+        return predicted, actual, update_table, start_time+len_of_track
     else:
         return None, None, None, start_time+len_of_track
 
 def run_through_audio(model_path, dict_path):
     index_dict = {}
     table_dict = []
-    with open(dict_path,'r') as file:
-        reader = csv.DictReader(file)
-        for row in reader:
-            index_dict[int(row['Code'])] = row['Label']
+    sound_detected = [] #this list will be full of tuples
     model = None
     if model_path:
+        with open(dict_path,'r') as file:
+            reader = csv.DictReader(file)
+            for row in reader:
+                index_dict[int(row['Code'])] = row['Label']
         model = load_model_for_training(model_path,len(index_dict)) #assigning the correct model...
-        score_sound = {'correct': 0, 'wrong': 0}
-        score_blank = {'correct': 0, 'wrong': 0}
+        predicted = []
+        actual = []
     all_tables = load_all_selection_tables()
     start_time = 0
     try:
         for table in all_tables:
             sound = load_all_sounds(table)
             dict_list = read_in_csv_times(table)
-            update_sound, update_blank, update_table, start_time = process_and_predict(sound, dict_list, model, index_dict,start_time)
+            update_predicted, update_actual, update_table, start_time = process_and_predict(sound, dict_list, model, index_dict,start_time)
             if model_path:
                 table_dict.extend(update_table)
-                for category in ['correct', 'wrong']:
-                    score_sound[category] += update_sound[category]
-                    score_blank[category] += update_blank[category]
+                predicted.extend(update_predicted)
+                actual.extend(update_actual)
                 save_string = 'saved_prediction.txt'
                 print(f'SAVING AS {save_string}')
                 save_file(table_dict,'saved_prediction.txt')
@@ -333,8 +309,14 @@ def get_model_from_name(model_name,num_labels):
         model = model.to(device)
         return model
 
-    elif model_name[:4].lower() == 'deit':
+    elif model_name.lower() == 'deit-small':
         return timm.create_model('deit_small_distilled_patch16_224',pretrained=True, num_classes=num_labels, in_chans=1).to(device)
 
-    elif model_name[:3].lower()=='vit':
+    elif model_name.lower()=='vit-base':
         return timm.create_model('vit_base_patch16_224',pretrained=True, num_classes=num_labels, in_chans=1).to(device)
+
+    elif model_name.lower()=='vit-large':
+        return timm.create_model('vit_large_patch16_224',pretrained=True, num_classes=num_labels, in_chans=1).to(device)
+
+    elif model_name.lower()=='deit-base':
+        return timm.create_model('deit-base-distilled-patch16-224',pretrained=True, num_classes=num_labels, in_chans=1).to(device)

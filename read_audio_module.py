@@ -87,10 +87,11 @@ def pad_start_and_end(start,dur, sample_rate):
 def extract_wav(wav, sample_rate, start, dur):
     start, end = pad_start_and_end(start,dur, sample_rate)
     cropped_wav = wav[0,start:end]
-    NFFT=1024
+    NFFT=512
     Pxx, freqs, bins, im = plt.specgram(cropped_wav, Fs=sample_rate, NFFT=NFFT, noverlap=NFFT/2,
     window=np.hanning(NFFT),mode='psd',scale='dB')
-    Pxx = Pxx[(freqs >= 50) & (freqs <= 3000)]
+
+    Pxx = Pxx[(freqs >= 50) & (freqs <= 3000)] # pxx = periodogram
     return Pxx
 
 def grab_wavform(wav_dir):
