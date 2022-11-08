@@ -142,11 +142,11 @@ if __name__ == '__main__':
             validate_model(DATA,model,None,True)
 
         elif option == '12':
-            lr=0.0003
+            lr=0.0001
             wd=0.03
             epochs=6
             momentum=0.9
-            name='deit-vit'
+            name='vit-base'
             optimm='adamw'
             lr_decay = None
             pink='true'

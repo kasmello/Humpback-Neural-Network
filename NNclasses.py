@@ -24,11 +24,10 @@ from timm.models.vision_transformer import VisionTransformer, _cfg
 from timm.models.registry import register_model
 from timm.models.layers import trunc_normal_
 
-# torch.multiprocessing.set_sharing_strategy('file_system')
 
-# def set_worker_sharing_strategy(worker_id: int) -> None:
-#     torch.multiprocessing.set_sharing_strategy('file_system')
-# from spec_augment_pytorch import spec_augment #give credits where
+train_ratio = 0.8
+validation_ratio = 0.1
+test_ratio = 0.1
 class nn_data:
 
     def __init__(self, root, batch_size,pink='true'):
@@ -40,17 +39,17 @@ class nn_data:
                 transforms.Grayscale(num_output_channels=1),
                 transforms.ToTensor(),
                 AddPinkNoise(p=0.5,power=1), 
-                TimeWarp(p=0.2,T=50),
-                FreqMask(p=0.2, F=20),
-                TimeMask(p=0.2, T=20),
+                TimeWarp(p=0.3,T=50),
+                FreqMask(p=0.3, F=20),
+                TimeMask(p=0.3, T=20),
             ])
         else:
             self.train_transform = transforms.Compose([
                 transforms.Grayscale(num_output_channels=1),
                 transforms.ToTensor(),
-                TimeWarp(p=0.2,T=50),
-                FreqMask(p=0.2, F=20),
-                TimeMask(p=0.2, T=20),
+                TimeWarp(p=0.3,T=50),
+                FreqMask(p=0.3, F=20),
+                TimeMask(p=0.3, T=20),
             ])
 
         
@@ -94,7 +93,13 @@ class nn_data:
 
         validation_folder = datasets.ImageFolder(self.validation_path,transform=self.v_transform)
         self.all_validation = torch.utils.data.DataLoader(validation_folder,
-                                              batch_size=50,
+                                              batch_size=512,
+                                              shuffle=True,
+                                              num_workers=np.where(platform.system()=="Windows",2,0),
+                                              pin_memory=True)
+        testing_folder = datasets.ImageFolder(self.testing_path,transform=self.v_transform)
+        self.all_testing = torch.utils.data.DataLoader(testing_folder,
+                                              batch_size=512,
                                               shuffle=True,
                                               num_workers=np.where(platform.system()=="Windows",2,0),
                                               pin_memory=True)
@@ -121,7 +126,7 @@ class nn_data:
 
     @staticmethod
     def make_folders(root):
-        all_dir = [dir.name for dir in pathlib.Path(root).glob('*') if dir.name not in ['Training','Validation','.DS_Store']]
+        all_dir = [dir.name for dir in pathlib.Path(root).glob('*') if dir.name not in ['Training','Validation','Testing','.DS_Store']]
         try:
             pathlib.Path(os.path.join(root,'Training')).mkdir(parents=True, exist_ok=True)
         except FileExistsError: #this shouldnt happen with parents=true but it does
@@ -130,12 +135,17 @@ class nn_data:
             pathlib.Path(os.path.join(root,'Validation')).mkdir(parents=True, exist_ok=True)
         except FileExistsError:
             pass
+        try:
+            pathlib.Path(os.path.join(root,'Testing')).mkdir(parents=True, exist_ok=True)
+        except FileExistsError:
+            pass
         print(all_dir)
         return all_dir
 
     def stratify_sample(self, root):
         random.seed(30)
-        for dir in self.all_labels:
+        print('STRATIFYING')
+        for dir in tqdm(self.all_labels):
             try:
                 pathlib.Path(os.path.join(root,'Training',dir)).mkdir(parents=True, exist_ok=True)
             except FileExistsError:
@@ -144,23 +154,32 @@ class nn_data:
                 pathlib.Path(os.path.join(root,'Validation',dir)).mkdir(parents=True, exist_ok=True)
             except FileExistsError:
                 pass
+            try:
+                pathlib.Path(os.path.join(root,'Testing',dir)).mkdir(parents=True, exist_ok=True)
+            except FileExistsError:
+                pass
             label_dir = os.path.join(root,dir)
             all_files = [file for file in pathlib.Path(label_dir).glob('**/*.png')]
             random.seed(30)
-            samp_length = int(len(all_files)*0.2)
-            samp = random.sample(all_files,samp_length)
+            train, validate, test = np.split(np.arange(0,len(all_files)), [int(train_ratio*len(all_files)), 
+                int((train_ratio+validation_ratio)*len(all_files))])
             if len(all_files)!= 0:
-                for file in tqdm(all_files):
-                    if file in samp:
-                        old_dir = os.path.join(root,dir,file.name)
-                        new_dir = os.path.join(root,'Validation',dir,file.name)
-                        shutil.move(old_dir,new_dir)
-                    else:
-                        old_dir = os.path.join(root,dir,file.name)
-                        new_dir = os.path.join(root,'Training',dir,file.name)
-                        shutil.move(old_dir,new_dir)
+                for i in train:
+                    old_dir = os.path.join(root,dir,all_files[i].name)
+                    new_dir = os.path.join(root,'Training',dir,all_files[i].name)
+                    shutil.move(old_dir,new_dir)
+                for i in validate:
+                    old_dir = os.path.join(root,dir,all_files[i].name)
+                    new_dir = os.path.join(root,'Validation',dir,all_files[i].name)
+                    shutil.move(old_dir,new_dir)
+                for i in test:
+                    old_dir = os.path.join(root,dir,all_files[i].name)
+                    new_dir = os.path.join(root,'Testing',dir,all_files[i].name)
+                    shutil.move(old_dir,new_dir)
+
         self.train_path = os.path.join(root,'Training')
         self.validation_path = os.path.join(root,'Validation')
+        self.testing_path = os.path.join(root,'Testing')
 
 class CNNet(nn.Module):
     def __init__(self, num_classes):
