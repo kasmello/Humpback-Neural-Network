@@ -13,7 +13,7 @@ if __name__=='__main__':
     print('Sweep modo!!!')
     wandb.init(resume="allow")
     config=wandb.config
-    DATA = nn_data(root, batch_size = config.batch_size,pink=config.pink)    
+    DATA = nn_data(root, batch_size = config.batch_size,pink=config.pink,specgram=config.specgram)    
     
     run_model(DATA=DATA, net_name=config.architecture, lr=config.lr, wd=config.wd, epochs=config.epochs, \
-                        lr_decay = config.lr_decay, pink=config.pink, momentum=None)
+                        lr_decay = config.lr_decay, pink=config.pink, momentum=None, specgram=config.specgram)
