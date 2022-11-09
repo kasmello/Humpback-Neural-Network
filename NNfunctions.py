@@ -203,7 +203,7 @@ def process_and_predict(sound, dict_list, model, index_dict, start_time):
 
 def write_table(sound,detection_list):
     today = date.today()
-    path_to_write_to = f'Selection Tables/{sound.split('/')[-1][:-4]}_{today}.csv'
+    path_to_write_to = f"Selection Tables/{sound.split('/')[-1][:-4]}_{today}.csv"
     if len(detection_list) > 0:
         with open(path_to_write_to,'w') as selection_table:
             writer = csv.DictWriter(selection_table, fieldnames=[detection_list[0].keys()])
