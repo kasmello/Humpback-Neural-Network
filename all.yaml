@@ -16,6 +16,6 @@ parameters:
   specgram:
     values: ['true','false']
   architecture:
-    values: ['vit-base','resnet18','vgg16','deit-base']
+    values: ['vit-base','resnet18','efficientnet','deit-small']
   epochs:
     value: 12

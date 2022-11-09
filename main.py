@@ -60,7 +60,7 @@ if __name__ == '__main__':
                     \n9: Train and Test VGG16\
                     \n10: Load model\
                     \n11: Test loaded model on Validation Data\
-                    \n12: Test Data Efficient Transformer\
+                    \n12: Test EffcientNet Transformer\
                     \n13: Waveform/Spectrogram playground\
                     \n14: Run through audio without prediction\n')
 
@@ -146,7 +146,7 @@ if __name__ == '__main__':
             wd=0.03
             epochs=6
             momentum=0.9
-            name='vit-large'
+            name='efficientnet'
             optimm='adamw'
             lr_decay = None
             pink='true'

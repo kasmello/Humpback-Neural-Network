@@ -327,5 +327,5 @@ def get_model_from_name(model_name,num_labels):
     elif model_name.lower()=='vit-large':
         return timm.create_model('vit_large_patch16_224',pretrained=True, num_classes=num_labels, in_chans=1).to(device)
 
-    elif model_name.lower()=='deit-base':
-        return timm.create_model('deit-base-distilled-patch16-224',pretrained=True, num_classes=num_labels, in_chans=1).to(device)
+    elif model_name.lower()=='efficientnet':
+        return timm.create_model('efficientnet_b0',pretrained=True, num_classes=num_labels, in_chans=1).to(device)
