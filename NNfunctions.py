@@ -7,6 +7,7 @@ import timm
 import os
 import math
 import platform
+from datetime import date
 from read_audio_module import extract_wav, grab_wavform
 from scipy.io import wavfile
 from tqdm import tqdm
@@ -155,18 +156,15 @@ def process_and_predict(sound, dict_list, model, index_dict, start_time):
                 sounds_in_this_current_window = dequeue_noises(sounds_in_this_current_window,start,sample_rate)
         except IndexError:
             pass
-        if vad_arr[t] == 1:
-            pass
         print(f'START SELECTION: {round(start/sample_rate,2)} END SELECTION: {round(end/sample_rate,2)}')
         Z = extract_wav(wavform, sample_rate,start, dur)
         Z = normalise(Z,convert=True,fix_range=False)
         Z = resize(Z, (224,224),anti_aliasing=False)
-        plt.imshow(Z,cmap='gray')
-        plt.axis('on')
-        plt.show(block=False)
-        plt.pause(0.1)
-        # plt.show()
-        plt.close()
+        # plt.imshow(Z,cmap='gray')
+        # plt.axis('on')
+        # plt.show(block=False)
+        # plt.pause(0.1)
+        # plt.close()
         if model:
             Z = torch.tensor([[Z]],device=device, dtype=torch.float32)
             with torch.no_grad():
@@ -186,6 +184,8 @@ def process_and_predict(sound, dict_list, model, index_dict, start_time):
                     row = detection_values.pop(code)
                     update_table.append(row)
                 row = {
+                'Begin Path': sound,
+                'End File': sound.split('/')[-1],
                 'Begin Time (s)': curr_start_seconds,
                 'End Time (s)': curr_start_seconds+2.7,
                 'Beg File Samp (samples)': curr_start_time,
@@ -195,15 +195,23 @@ def process_and_predict(sound, dict_list, model, index_dict, start_time):
 
                 detection_values[label_tensor[0]] = row
             print(f'Top 3: {label_tensor}, PERCENTS: {round(percents,2)}')
-    fig, ax = plt.subplots()
-    ax.boxplot([no_box,box])
-    ax.set_xticklabels(['No Selection','Selection'])
-    plt.show()
-    plt.close()
+    write_table(sound, [detection_values.values()])
     if model:
         return predicted, actual, update_table, start_time+len_of_track
     else:
         return None, None, None, start_time+len_of_track
+
+def write_table(sound,detection_list):
+    today = date.today()
+    path_to_write_to = f'Selection Tables/{sound.split('/')[-1][:-4]}_{today}.csv'
+    if len(detection_list) > 0:
+        with open(path_to_write_to,'w') as selection_table:
+            writer = csv.DictWriter(selection_table, fieldnames=[detection_list[0].keys()])
+            writer.writeheader()
+            for row in detection_list:
+                writer.writerow(row)
+    else:
+        print('Nothing written in the table!')
 
 def run_through_audio(model_path, dict_path):
     index_dict = {}

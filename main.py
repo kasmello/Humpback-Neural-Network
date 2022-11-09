@@ -80,7 +80,7 @@ if __name__ == '__main__':
             name='vit-base'
             optimm='adamw'
             lr_decay = None
-            run_model(DATA,name,lr,wd,momentum,epochs, True, optimm, lr_decay)
+            run_model(DATA,name,lr,wd,momentum,epochs, True, True, optimm, lr_decay)
 
         elif option == '3':
             DATA.test_transform()
@@ -122,7 +122,7 @@ if __name__ == '__main__':
             name='resnet18'
             optimm='adamw'
             lr_decay = None
-            run_model(DATA,name,lr,wd,momentum,epochs, True, optimm, lr_decay)
+            run_model(DATA,name,lr,wd,momentum,epochs, True, True, optimm, lr_decay)
 
         elif option == '9':
             lr=0.001
@@ -132,7 +132,7 @@ if __name__ == '__main__':
             name='vgg16'
             optimm='sgd'
             lr_decay = 'cosineAN'
-            run_model(DATA,name,lr,wd,momentum,epochs, True, optimm, lr_decay)
+            run_model(DATA,name,lr,wd,momentum,epochs, True, True, optimm, lr_decay)
 
         elif option == '10':
             MODEL_PATH = load_model_and_dict()
@@ -150,7 +150,7 @@ if __name__ == '__main__':
             optimm='adamw'
             lr_decay = None
             pink='true'
-            run_model(DATA,name,lr,wd,momentum,epochs, pink, optimm, lr_decay)
+            run_model(DATA,name,lr,wd,momentum,epochs, True, True, optimm, lr_decay)
 
         elif option == '13':
             wavform, clean, sample_rate = grab_wavform('Test Wavs/20090617040001.wav')

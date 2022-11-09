@@ -70,7 +70,6 @@ def train_nn(DATA, **train_options):
     momentum=train_options['momentum']
     wd=train_options['wd']
     lr_decay=train_options['lr_decay']
-    pink = train_options['pink']
     name = lbl
     if momentum:
         optimizer = optimizer(net.parameters(), lr=lr, momentum=momentum, weight_decay=wd)
@@ -113,11 +112,11 @@ def train_nn(DATA, **train_options):
                 # calculate how wrong we are
                 loss = loss_f(output, y)
                 loss_number = loss.item()
-                if wandb.run:
-                    wandb.log({'T Loss': loss_number})
                 if i % 10 == 0 and i > 0:
                     pred, actual, images = convert_output_to_prediction(output, x, y)
                     check_training_accuracy(DATA,pred,actual)
+                    if wandb.run:
+                        wandb.log({'T Loss': loss_number})
                 loss.backward()  # backward propagation
                 torch.nn.utils.clip_grad_norm_(net.parameters(), 1)
                 optimizer.step()
@@ -195,7 +194,7 @@ def test_model(DATA, net):
     print(classification_report(actual, pred))
     if wandb.run:
         wandb.log(result_dict)
-        idx_images = random.sample(np.arange(0,len(images)),k=50)
+        idx_images = random.sample(range(0,len(images)),k=50)
         sample_images = [images[i] for i in idx_images]
         sample_pred = [pred[i] for i in idx_images]
         sample_actual = [actual[i] for i in idx_images]
@@ -248,7 +247,7 @@ def load_from_recovery(net_name):
     
 
 
-def run_model(DATA,net_name,lr,wd,momentum,epochs, pink, optimm='adamw', lr_decay=None):
+def run_model(DATA,net_name,lr,wd,momentum,epochs, pink, specgram,optimm='adamw', lr_decay=None):
     try:
         requests.get('https://www.google.com')
     except requests.ConnectionError:
@@ -261,14 +260,14 @@ def run_model(DATA,net_name,lr,wd,momentum,epochs, pink, optimm='adamw', lr_deca
         params_str += f' lr={lr}'
     if wd:
         params_str += f' wd={wd}'
-    if momentum:
-        params_str += f' momentum={momentum}'
     if optimm:
         params_str += f' optimm={optimm}'
     if lr_decay:
         params_str += f' lrdecay={lr_decay}'
     if pink:
         params_str += f' pink_noise'
+    if specgram:
+        params_str += f' specgram'
     params_str += f' batch_size={DATA.batch_size}'
     special_indicator = ''
     if not wandb.run: #If this ain't a sweep
@@ -289,4 +288,4 @@ def run_model(DATA,net_name,lr,wd,momentum,epochs, pink, optimm='adamw', lr_deca
 
     model = get_model_from_name(net_name,len(DATA.all_labels))  
     train_nn(DATA, lr=lr, wd=wd, epochs=epochs, optimizer=optimm, net=model, lbl=f'{net_name}_{params_str}_{special_indicator}',
-                                        momentum=momentum,lr_decay=lr_decay,pink=pink)
+                                        momentum=momentum,lr_decay=lr_decay,pink=pink,specgram=specgram)
