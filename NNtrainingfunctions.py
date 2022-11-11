@@ -201,12 +201,7 @@ def test_model(DATA, net, final_epoch):
     print(result_dict)
     print(classification_report(actual, pred))
     if wandb.run:
-        wandb.run.summary['Test Loss'] = loss_number
-        wandb.run.summary['Test Accuracy'] = accuracy
-        wandb.run.summary['Test Wgt Precision'] = precision
-        wandb.run.summary['Test Wgt Recall'] = recall
-        wandb.run.summary['Test Wgt F1'] = f1
-        wandb.run.summary['Total Epochs'] = final_epoch
+        wandb.run.summary['Test Results'] = result_dict
         # wandb.log(result_dict)
         idx_images = random.sample(range(0,len(images)),k=50)
         sample_images = [images[i] for i in idx_images]
