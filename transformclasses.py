@@ -48,7 +48,7 @@ class TimeWarp(nn.Module):
         return f"{self.__class__.__name__}(p={self.p})(W={self.T})"
 
 class FreqMask(nn.Module):
-    def __init__(self, p = 0.2, F=20, masks=5):
+    def __init__(self, p = 0.2, F=20, masks=10):
         super().__init__()
         self.p = p
         self.F = F
@@ -58,8 +58,8 @@ class FreqMask(nn.Module):
         if random.random() > self.p:
             return img
         num_mel_channels = img.shape[1]
-
-        for i in range(0, self.masks):
+        num_masks = random.randint(1,self.masks)
+        for i in range(0, num_masks):
             f = random.randint(0, self.F)
             f_zero = random.randint(0, num_mel_channels - f)
             # avoids randrange error if values are equal and range is empty
@@ -72,7 +72,7 @@ class FreqMask(nn.Module):
         return f"{self.__class__.__name__}(p={self.p})(F={self.F})(Masks={self.masks})"
 
 class TimeMask(nn.Module):
-    def __init__(self, p=0.2, T=20, masks=1):
+    def __init__(self, p=0.2, T=20, masks=10):
         super().__init__()
         self.p = p
         self.T = T
@@ -82,8 +82,8 @@ class TimeMask(nn.Module):
         if random.random() > self.p:
             return img
         len_spectro = img.shape[2]
-
-        for i in range(0, self.masks):
+        num_masks = random.randint(1,self.masks)
+        for i in range(0, num_masks):
             t = random.randint(0, self.T)
             t_zero = random.randint(0, len_spectro - t)
             # avoids randrange error if values are equal and range is empty
@@ -110,6 +110,33 @@ class AddPinkNoise(nn.Module):
         pink = pink * power
         img_layer = img[0].detach().numpy()
         img[0] = torch.Tensor(np.where(img_layer >pink,img_layer,pink))
+        # img[0] = torch.Tensor(img_layer + pink)
+        return img
+
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(p={self.p})"
+
+class TranslateHorizontal(nn.Module):
+    def __init__(self, p=0.2,moving=70):
+        super().__init__()
+        self.p = p
+        self.moving = moving
+
+    def forward(self, img):
+        if random.random() > self.p:
+            return img
+        move = random.randint(5,self.moving)
+        if random.random() > 0.5:
+            move *= -1
+        new_img = np.zeros((len(img[0]),len(img[0][0])))
+        for i in range(len(img[0])):
+            new_pixel_idx = i - move
+            if new_pixel_idx < 0 or new_pixel_idx >= len(img[0]):
+                continue
+            new_img[:,i] = img[0][:,int(new_pixel_idx)]
+
+        img[0] = torch.Tensor(new_img)
         # img[0] = torch.Tensor(img_layer + pink)
         return img
 

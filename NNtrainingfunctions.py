@@ -132,7 +132,7 @@ def train_nn(DATA, **train_options):
             if patience == 0:
                 print('Patience reached 0, break!')
                 break
-            if total_time >= 30:
+            if total_time >= 3600:
                 print('Model has exceeded an hour of training, ending!')
                 break
 
