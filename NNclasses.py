@@ -41,14 +41,14 @@ class nn_data:
         if not specgram:
             specgram_p = 0
         else:
-            specgram_p = 0.5
+            specgram_p = 0.35
         self.train_transform = transforms.Compose([
             transforms.Grayscale(num_output_channels=1),
             transforms.ToTensor(),
-            TimeWarp(p=specgram_p,T=100),
-            FreqMask(p=specgram_p, F=40),
-            TimeMask(p=specgram_p, T=40),
-            TranslateHorizontal(p=0.5,moving=100),
+            TimeWarp(p=specgram_p,T=80),
+            FreqMask(p=specgram_p, F=20),
+            TimeMask(p=specgram_p, T=20),
+            TranslateHorizontal(p=0.5,moving=80),
             AddPinkNoise(p=pink_p,power=1)
         ])
         

@@ -48,7 +48,7 @@ class TimeWarp(nn.Module):
         return f"{self.__class__.__name__}(p={self.p})(W={self.T})"
 
 class FreqMask(nn.Module):
-    def __init__(self, p = 0.2, F=20, masks=10):
+    def __init__(self, p = 0.2, F=20, masks=7):
         super().__init__()
         self.p = p
         self.F = F
@@ -72,7 +72,7 @@ class FreqMask(nn.Module):
         return f"{self.__class__.__name__}(p={self.p})(F={self.F})(Masks={self.masks})"
 
 class TimeMask(nn.Module):
-    def __init__(self, p=0.2, T=20, masks=10):
+    def __init__(self, p=0.2, T=20, masks=7):
         super().__init__()
         self.p = p
         self.T = T
