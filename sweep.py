@@ -15,8 +15,7 @@ if __name__=='__main__':
     config=wandb.config
 
     
-    params_str = f"arch = {config.architecture} lr={config.lr} lr_decay={config.lr_decay} wd={config.wd} specgram={config.specgram}\
-         pink_noise={config.pink} batch_size={config.batch_size}"
+    params_str = f"arch = {config.architecture} lr={config.lr} lr_decay={config.lr_decay} wd={config.wd} specgram={config.specgram} pink_noise={config.pink} batch_size={config.batch_size}"
     wandb.init().name = params_str
     DATA = nn_data(root, batch_size = config.batch_size,pink=config.pink,specgram=config.specgram)    
     
