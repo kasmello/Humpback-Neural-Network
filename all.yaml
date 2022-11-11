@@ -1,4 +1,4 @@
-project: Sweep_vittest
+project: Sweep_lulza
 program: sweep.py
 method: grid
 entity: kasmello

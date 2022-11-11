@@ -16,7 +16,7 @@ from skimage.transform import resize
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
 import torchvision.models as models
-import unsupervised_vad as grab_sound_detection_areas
+from unsupervised_vad import grab_sound_detection_areas
 from NNclasses import Net, CNNet
 from transformclasses import normalise
 from hbad import calculate_energy, calculate_energy_from_fft, calculate_noise_ratio
@@ -138,12 +138,12 @@ def process_and_predict(sound, dict_list, model, index_dict, start_time):
         predicted = []
         actual = []
         update_table = []
-    wavform, clean_wavform, sample_rate = grab_wavform(sound)
-    vad_arr = grab_sound_detection_areas(wavform, sample_rate, 0.4)
+    wav, clean_wavform, sample_rate = grab_wavform(sound)
+    vad_arr = grab_sound_detection_areas(wav, sample_rate, 0.4)
     #heckin plot some spectrograms here pls
-    len_of_track = len(wavform[0])
+    len_of_track = len(wav[0])
     dur = int(2.7 * sample_rate)  # in seconds
-    detection_dur = int(0.025*sample_rate)
+    detection_dur = int(0.2*sample_rate)
     sounds_in_this_current_window = deque()
     detection_values = {} #key = category, #values = dict
     for t in range(0,len_of_track - dur,detection_dur):
@@ -157,7 +157,7 @@ def process_and_predict(sound, dict_list, model, index_dict, start_time):
         except IndexError:
             pass
         print(f'START SELECTION: {round(start/sample_rate,2)} END SELECTION: {round(end/sample_rate,2)}')
-        Z = extract_wav(wavform, sample_rate,start, dur)
+        Z = extract_wav(wav, sample_rate,start, dur)
         Z = normalise(Z,convert=True,fix_range=False)
         Z = resize(Z, (224,224),anti_aliasing=False)
         # plt.imshow(Z,cmap='gray')
@@ -173,10 +173,12 @@ def process_and_predict(sound, dict_list, model, index_dict, start_time):
             tensor = torch.topk(output.flatten(), 3).indices.cpu().numpy()
             label_tensor = [index_dict[code] for code in tensor]
             curr_start_seconds = curr_start_time/sample_rate
+            if label_tensor[0] == 'Blank':
+                continue #don't want to record blanks
             if detection_values.get(label_tensor[0]):
                 dict_to_update = detection_values[label_tensor[0]]
                 dict_to_update['End Time (s)'] = curr_start_seconds+2.7
-                dict_to_update['End File Samp (samples)'] = curr_start_time+2.7*sample_rate,
+                dict_to_update['End File Samp (samples)'] = curr_start_time+2.7*sample_rate, #only update end times if item is already in
                 detection_values[label_tensor[0]] = dict_to_update
             else:
                 pop_list = [key for key in detection_values.keys() if key != label_tensor[0]]
@@ -194,24 +196,12 @@ def process_and_predict(sound, dict_list, model, index_dict, start_time):
                 }
 
                 detection_values[label_tensor[0]] = row
-            print(f'Top 3: {label_tensor}, PERCENTS: {round(percents,2)}')
-    write_table(sound, [detection_values.values()])
+            print(f'Top 3: {label_tensor}, PERCENTS: {[round(percent,2) for percent in percents]}')
     if model:
         return predicted, actual, update_table, start_time+len_of_track
     else:
         return None, None, None, start_time+len_of_track
 
-def write_table(sound,detection_list):
-    today = date.today()
-    path_to_write_to = f"Selection Tables/{sound.split('/')[-1][:-4]}_{today}.csv"
-    if len(detection_list) > 0:
-        with open(path_to_write_to,'w') as selection_table:
-            writer = csv.DictWriter(selection_table, fieldnames=[detection_list[0].keys()])
-            writer.writeheader()
-            for row in detection_list:
-                writer.writerow(row)
-    else:
-        print('Nothing written in the table!')
 
 def run_through_audio(model_path, dict_path):
     index_dict = {}
@@ -237,9 +227,10 @@ def run_through_audio(model_path, dict_path):
                 table_dict.extend(update_table)
                 predicted.extend(update_predicted)
                 actual.extend(update_actual)
-                save_string = 'saved_prediction.txt'
+                today = date.today()
+                save_string = f"Selection Tables/{sound.split('/')[-1][:-4]}_{today}.txt"
                 print(f'SAVING AS {save_string}')
-                save_file(table_dict,'saved_prediction.txt')
+                save_file(table_dict,save_string)
     except KeyboardInterrupt:
         print('DONE')
 
@@ -271,7 +262,7 @@ def save_file(table_dict, save_str):
         print('Nothing detected!')
         return None
     with open(save_str, 'w') as f:
-        fieldnames = [table_dict[0].keys()]
+        fieldnames = list(table_dict[0].keys())
         writer = csv.DictWriter(f, delimiter='\t', fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(table_dict)

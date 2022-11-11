@@ -96,8 +96,10 @@ def train_nn(DATA, **train_options):
     total_time = 0
     patience=original_patience
     prev_score = 0
+    final_epoch = 0
     for epoch in tqdm(range(epochs), position=0, leave=True):
         try:
+            final_epoch = epoch
             if lr_decay: scheduler(None)
             print({'lr': optimizer.param_groups[0]["lr"]})
             time_taken_this_epoch = 0
@@ -140,7 +142,7 @@ def train_nn(DATA, **train_options):
             # torch.save(net.state_dict(), file_path)
             # print(f'Keyboard Interrupt detected. Saving current file as {file_path}')
             # break
-    test_model(DATA,net)   
+    test_model(DATA,net, final_epoch)   
     wandb.finish() 
 
 
@@ -151,20 +153,22 @@ def predict(data,net, num_batches=999999999):
         pred = []
         actual = []
         images = []
+        output = []
         for i, batch in enumerate(data):
             x, y = load_batch_to_device(batch)
-            output = F.log_softmax(net(x), dim=1)
-            loss = F.nll_loss(output,y)
+            percents = F.log_softmax(net(x), dim=1)
+            loss = F.nll_loss(percents,y)
             loss_number = loss.item()
-            new_pred, new_actual, new_images = convert_output_to_prediction(output, x, y)
+            new_pred, new_actual, new_images = convert_output_to_prediction(percents, x, y)
             pred.extend(new_pred)
             actual.extend(new_actual)
             images.extend(new_images)
+            output.extend(percents.cpu().numpy())
             if i == num_batches-1:
                 break
         end = time.time()
         if wandb.run: wandb.log({'Validation Time': end-start})
-        return images, pred, actual, loss_number
+        return images, pred, actual, loss_number, output
         
 
 def check_training_accuracy(DATA,pred,actual):
@@ -179,27 +183,37 @@ def check_training_accuracy(DATA,pred,actual):
                 'T Wgt Precision': precision, 'T Wgt Recall': recall}
         wandb.log(result_dict)
 
-def test_model(DATA, net):
-    images, pred, actual, loss_number = predict(DATA.all_testing,net)
+def test_model(DATA, net, final_epoch):
+    images, pred, actual, loss_number, output = predict(DATA.all_testing,net)
+    actual_for_roc = actual
     pred = DATA.inverse_encode(pred)
     actual = DATA.inverse_encode(actual)
-    output = classification_report(actual, pred, output_dict=True)
-    accuracy = output['accuracy']
-    precision = output['weighted avg']['precision']
-    recall = output['weighted avg']['recall']
-    f1 = output['weighted avg']['f1-score']
+    class_report = classification_report(actual, pred, output_dict=True)
+    wandb.log({"ROC" : wandb.plot.pr_curve([x.item() for x in actual_for_roc], output,labels=[*DATA.label_dict.values()])})
+
+    accuracy = class_report['accuracy']
+    precision = class_report['weighted avg']['precision']
+    recall = class_report['weighted avg']['recall']
+    f1 = class_report['weighted avg']['f1-score']
+    
     result_dict = {'Test Loss': loss_number, 'Test Accuracy': accuracy,
-            'Test Wgt Precision': precision, 'Test Wgt Recall': recall, 'Test Wgt F1': f1}
+            'Test Wgt Precision': precision, 'Test Wgt Recall': recall, 'Test Wgt F1': f1, 'Total Epochs': final_epoch}
     print(result_dict)
     print(classification_report(actual, pred))
     if wandb.run:
-        wandb.log(result_dict)
+        wandb.run.summary['Test Loss'] = loss_number
+        wandb.run.summary['Test Accuracy'] = accuracy
+        wandb.run.summary['Test Wgt Precision'] = precision
+        wandb.run.summary['Test Wgt Recall'] = recall
+        wandb.run.summary['Test Wgt F1'] = f1
+        wandb.run.summary['Total Epochs'] = final_epoch
+        # wandb.log(result_dict)
         idx_images = random.sample(range(0,len(images)),k=50)
         sample_images = [images[i] for i in idx_images]
         sample_pred = [pred[i] for i in idx_images]
         sample_actual = [actual[i] for i in idx_images]
         log_images(sample_images,sample_pred,sample_actual)
-        extract_f1_score(DATA, output)
+        extract_f1_score(DATA, class_report)
     else:
         print(DATA.all_labels)
         cm = confusion_matrix(actual,pred, labels = DATA.all_labels)
@@ -210,14 +224,14 @@ def test_model(DATA, net):
         plt.close()
 
 def validate_model(DATA, net, patience, prev_score):
-    images, pred, actual, loss_number = predict(DATA.all_validation,net)
+    images, pred, actual, loss_number, output = predict(DATA.all_validation,net)
     pred = DATA.inverse_encode(pred)
     actual = DATA.inverse_encode(actual)
-    output = classification_report(actual, pred, output_dict=True)
-    accuracy = output['accuracy']
-    precision = output['weighted avg']['precision']
-    recall = output['weighted avg']['recall']
-    f1 = output['weighted avg']['f1-score']
+    class_report = classification_report(actual, pred, output_dict=True)
+    accuracy = class_report['accuracy']
+    precision = class_report['weighted avg']['precision']
+    recall = class_report['weighted avg']['recall']
+    f1 = class_report['weighted avg']['f1-score']
     result_dict = {'V Loss': loss_number, 'V Accuracy': accuracy,
             'V Wgt Precision': precision, 'V Wgt Recall': recall, 'V Wgt F1': f1}
     print(result_dict)

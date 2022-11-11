@@ -37,27 +37,30 @@ class nn_data:
         if not pink: 
             pink_p = 0
         else:
-            pink_p = 0.5
+            pink_p = 0.7
         if not specgram:
             specgram_p = 0
         else:
-            specgram_p = 0.3
+            specgram_p = 0.5
         self.train_transform = transforms.Compose([
             transforms.Grayscale(num_output_channels=1),
             transforms.ToTensor(),
-            AddPinkNoise(p=pink_p,power=1), 
-            TimeWarp(p=specgram_p,T=50),
-            FreqMask(p=specgram_p, F=20),
-            TimeMask(p=specgram_p, T=20),
+            TimeWarp(p=specgram_p,T=100),
+            FreqMask(p=specgram_p, F=40),
+            TimeMask(p=specgram_p, T=40),
+            TranslateHorizontal(p=0.5,moving=100),
+            AddPinkNoise(p=pink_p,power=1)
         ])
         
         self.transform_all = transforms.Compose([
             transforms.Grayscale(num_output_channels=1),
             transforms.ToTensor(),
             AddPinkNoise(p=1,power=1), 
-            TimeWarp(p=1,T=50),
+            TimeWarp(p=1,T=100),
             FreqMask(p=1, F=20),
             TimeMask(p=1, T=20),
+            TranslateHorizontal(p=1,moving=100),
+            AddPinkNoise(p=pink_p,power=1)
         ])
 
         self.v_transform = transforms.Compose([
@@ -72,7 +75,7 @@ class nn_data:
         with open(f'index_to_label.csv','w') as file:
             file.write('Code,Label\n')
             for key, item in self.label_dict.items():
-                file.write(f'{key}, {item}\n')
+                file.write(f'{key},{item}\n')
 
 
     def inverse_encode(self, labels):
