@@ -30,7 +30,7 @@ ssl._create_default_https_context = ssl._create_unverified_context
 device = torch.device("cuda" if platform.system()=='Windows'
                                 else "mps")
 
-original_patience = 5
+original_patience = 4
 
 def extract_f1_score(DATA, dict):
     data = [[category, dict[category]['f1-score']] for category in DATA.label_dict.values()]
@@ -132,7 +132,7 @@ def train_nn(DATA, **train_options):
             if patience == 0:
                 print('Patience reached 0, break!')
                 break
-            if total_time >= 3600:
+            if total_time >= 3000:
                 print('Model has exceeded an hour of training, ending!')
                 break
 

@@ -48,7 +48,7 @@ class nn_data:
             TimeWarp(p=specgram_p,T=80),
             FreqMask(p=specgram_p, F=20),
             TimeMask(p=specgram_p, T=20),
-            TranslateHorizontal(p=0.5,moving=80),
+            TranslateHorizontal(p=0.5,moving=70),
             AddPinkNoise(p=pink_p,power=1)
         ])
         
