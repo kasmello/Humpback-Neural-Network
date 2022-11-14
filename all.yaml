@@ -4,9 +4,9 @@ method: grid
 entity: kasmello
 parameters:
   lr:
-    values: [0.00001,0.00005]
+    values: [0.00001,0.000005]
   batch_size:
-    value: 32
+    value: 16
   lr_decay:
     values: ['none','cosineANW']
   wd:
