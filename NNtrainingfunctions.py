@@ -85,10 +85,7 @@ def train_nn(DATA, **train_options):
                         warmup_end_value = lr,
                         warmup_duration=warmup)
     elif lr_decay=='cosineANW':
-        scheduler = create_lr_scheduler_with_warmup(lsr.CosineAnnealingWarmRestarts(optimizer,T_0=3,eta_min=0.000001),
-                        warmup_start_value = lr/warmup,
-                        warmup_end_value = lr,
-                        warmup_duration=warmup)
+        scheduler = lsr.CosineAnnealingWarmRestarts(optimizer,T_0=3,eta_min=0.000001)
     else:
         lr_decay=None
     pathlib.Path(f'Models/{name}').mkdir(parents=True, exist_ok=True)
@@ -100,7 +97,6 @@ def train_nn(DATA, **train_options):
     
     for epoch in tqdm(range(epochs), position=0, leave=True):
         try:
-            if lr_decay: scheduler(None)
             final_epoch = epoch
             curr_learning_rate = optimizer.param_groups[0]["lr"]
             time_taken_this_epoch = 0
@@ -123,7 +119,7 @@ def train_nn(DATA, **train_options):
                 loss.backward()  # backward propagation
                 torch.nn.utils.clip_grad_norm_(net.parameters(), 1)
                 optimizer.step()
-
+            scheduler.step()
             end = time.time()
             time_taken_this_epoch += end-start
             total_time += time_taken_this_epoch
