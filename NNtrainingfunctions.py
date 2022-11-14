@@ -30,7 +30,7 @@ ssl._create_default_https_context = ssl._create_unverified_context
 device = torch.device("cuda" if platform.system()=='Windows'
                                 else "mps")
 
-original_patience = 4
+original_patience = 3
 
 def extract_f1_score(DATA, dict):
     data = [[category, dict[category]['f1-score']] for category in DATA.label_dict.values()]

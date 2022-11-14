@@ -46,9 +46,9 @@ class nn_data:
             transforms.Grayscale(num_output_channels=1),
             transforms.ToTensor(),
             TimeWarp(p=specgram_p,T=80),
-            FreqMask(p=specgram_p, F=20),
-            TimeMask(p=specgram_p, T=20),
-            TranslateHorizontal(p=0.5,moving=70),
+            FreqMask(p=specgram_p, F=10),
+            TimeMask(p=specgram_p, T=10),
+            TranslateHorizontal(p=0.5,moving=60),
             AddPinkNoise(p=pink_p,power=1)
         ])
         
