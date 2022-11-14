@@ -4,7 +4,7 @@ method: grid
 entity: kasmello
 parameters:
   lr:
-    values: [0.0000001,0.0000005]
+    values: [0.0000001,0.000001]
   batch_size:
     value: 16
   lr_decay:
