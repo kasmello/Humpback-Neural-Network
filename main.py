@@ -79,7 +79,7 @@ if __name__ == '__main__':
             momentum=None
             name='vit-base'
             optimm='adamw'
-            lr_decay = 'cosineanW'
+            lr_decay = 'cosineANW'
             run_model(DATA,name,lr,wd,momentum,epochs, True, True, optimm, lr_decay)
 
         elif option == '3':
