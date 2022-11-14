@@ -76,7 +76,7 @@ def train_nn(DATA, **train_options):
     else:
         optimizer = optimizer(net.parameters(), lr=lr,weight_decay=wd)  # adamw algorithm
 
-    warmup = 200
+    warmup = 2
     rest = epochs-warmup
    
     if lr_decay=='cosineAN': 
@@ -85,7 +85,7 @@ def train_nn(DATA, **train_options):
                         warmup_end_value = lr,
                         warmup_duration=warmup)
     elif lr_decay=='cosineANW':
-        scheduler = create_lr_scheduler_with_warmup(lsr.CosineAnnealingWarmRestarts(optimizer,T_0=300,eta_min=0.000001),
+        scheduler = create_lr_scheduler_with_warmup(lsr.CosineAnnealingWarmRestarts(optimizer,T_0=2,eta_min=0.000001),
                         warmup_start_value = lr/warmup,
                         warmup_end_value = lr,
                         warmup_duration=warmup)
@@ -99,12 +99,12 @@ def train_nn(DATA, **train_options):
     final_epoch = 0
     for epoch in tqdm(range(epochs), position=0, leave=True):
         try:
+            if lr_decay: scheduler(None)
             final_epoch = epoch
             curr_learning_rate = optimizer.param_groups[0]["lr"]
             time_taken_this_epoch = 0
             start = time.time()
             for i, batch in enumerate(tqdm(DATA.all_training, position=0, leave=True)):
-                if lr_decay: scheduler(None)
                 net.train()
                 x, y = load_batch_to_device(batch)
                 x.requires_grad = True
