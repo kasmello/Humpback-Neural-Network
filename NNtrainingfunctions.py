@@ -101,7 +101,8 @@ def train_nn(DATA, **train_options):
         try:
             final_epoch = epoch
             if lr_decay: scheduler(None)
-            print({'lr': optimizer.param_groups[0]["lr"]})
+            curr_learning_rate = optimizer.param_groups[0]["lr"]
+            print({'lr': curr_learning_rate})
             time_taken_this_epoch = 0
             start = time.time()
             for i, batch in enumerate(tqdm(DATA.all_training, position=0, leave=True)):
@@ -116,7 +117,7 @@ def train_nn(DATA, **train_options):
                 loss_number = loss.item()
                 if i % 10 == 0 and i > 0:
                     pred, actual, images = convert_output_to_prediction(output, x, y)
-                    check_training_accuracy(DATA,pred,actual)
+                    check_training_accuracy(DATA,pred,actual,curr_learning_rate)
                     if wandb.run:
                         wandb.log({'T Loss': loss_number})
                 loss.backward()  # backward propagation
@@ -171,7 +172,7 @@ def predict(data,net, num_batches=999999999):
         return images, pred, actual, loss_number, output
         
 
-def check_training_accuracy(DATA,pred,actual):
+def check_training_accuracy(DATA,pred,actual,curr_learning_rate):
     if wandb.run:
         pred = DATA.inverse_encode(pred)
         actual = DATA.inverse_encode(actual)
@@ -180,7 +181,7 @@ def check_training_accuracy(DATA,pred,actual):
         precision = output['weighted avg']['precision']
         recall = output['weighted avg']['recall']
         result_dict = {'T Accuracy': accuracy,
-                'T Wgt Precision': precision, 'T Wgt Recall': recall}
+                'T Wgt Precision': precision, 'T Wgt Recall': recall, 'Learning Rate': curr_learning_rate}
         wandb.log(result_dict)
 
 def test_model(DATA, net, final_epoch):
