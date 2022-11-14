@@ -76,7 +76,7 @@ def train_nn(DATA, **train_options):
     else:
         optimizer = optimizer(net.parameters(), lr=lr,weight_decay=wd)  # adamw algorithm
 
-    warmup = 2
+    warmup = 200
     rest = epochs-warmup
    
     if lr_decay=='cosineAN': 
@@ -85,7 +85,7 @@ def train_nn(DATA, **train_options):
                         warmup_end_value = lr,
                         warmup_duration=warmup)
     elif lr_decay=='cosineANW':
-        scheduler = create_lr_scheduler_with_warmup(lsr.CosineAnnealingWarmRestarts(optimizer,T_0=3,eta_min=0.000005),
+        scheduler = create_lr_scheduler_with_warmup(lsr.CosineAnnealingWarmRestarts(optimizer,T_0=500,eta_min=0.000001),
                         warmup_start_value = lr/warmup,
                         warmup_end_value = lr,
                         warmup_duration=warmup)
