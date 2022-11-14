@@ -4,13 +4,13 @@ method: grid
 entity: kasmello
 parameters:
   lr:
-    values: [0.00005,0.0001,0.0002]
+    values: [0.00005,0.0002]
   batch_size:
     value: 32
   lr_decay:
-    values: ['none','cosineAN']
+    values: ['none','cosineANW']
   wd:
-    value: 0.03
+    value: 0.0001
   pink:
     values: ['true','false']
   specgram:
