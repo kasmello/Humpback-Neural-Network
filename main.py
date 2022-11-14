@@ -73,7 +73,7 @@ if __name__ == '__main__':
 
         elif option == '2':
             #use https://arxiv.org/pdf/2106.10270.pdf as reference
-            lr=0.00005
+            lr=0.00001
             wd=0.0001
             epochs=6
             momentum=None

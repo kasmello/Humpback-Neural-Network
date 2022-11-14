@@ -18,4 +18,4 @@ parameters:
   architecture:
     values: ['vit-base','resnet18','efficientnet']
   epochs:
-    value: 15
+    value: 20
