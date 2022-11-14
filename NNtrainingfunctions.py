@@ -76,7 +76,7 @@ def train_nn(DATA, **train_options):
     else:
         optimizer = optimizer(net.parameters(), lr=lr,weight_decay=wd)  # adamw algorithm
 
-    warmup = 2
+    warmup = 200
     rest = epochs-warmup
    
     if lr_decay=='cosineAN': 
@@ -85,7 +85,7 @@ def train_nn(DATA, **train_options):
                         warmup_end_value = lr,
                         warmup_duration=warmup)
     elif lr_decay=='cosineANW':
-        scheduler = create_lr_scheduler_with_warmup(lsr.CosineAnnealingWarmRestarts(optimizer,T_0=2,eta_min=0.000001),
+        scheduler = create_lr_scheduler_with_warmup(lsr.CosineAnnealingWarmRestarts(optimizer,T_0=300,eta_min=0.000001),
                         warmup_start_value = lr/warmup,
                         warmup_end_value = lr,
                         warmup_duration=warmup)
@@ -97,9 +97,9 @@ def train_nn(DATA, **train_options):
     patience=original_patience
     prev_score = 0
     final_epoch = 0
+    if lr_decay: scheduler(None)
     for epoch in tqdm(range(epochs), position=0, leave=True):
         try:
-            if lr_decay: scheduler(None)
             final_epoch = epoch
             curr_learning_rate = optimizer.param_groups[0]["lr"]
             time_taken_this_epoch = 0
@@ -122,7 +122,7 @@ def train_nn(DATA, **train_options):
                 loss.backward()  # backward propagation
                 torch.nn.utils.clip_grad_norm_(net.parameters(), 1)
                 optimizer.step()
-                # if lr_decay: scheduler.step()
+                if lr_decay: scheduler.step()
 
             end = time.time()
             time_taken_this_epoch += end-start
