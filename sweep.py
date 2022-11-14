@@ -1,11 +1,12 @@
 if __name__=='__main__':
 
     import wandb
+    import os
+    import platform
     from NNtrainingfunctions import run_model
     from NNclasses import nn_data
-    import platform
 
-
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
     if platform.system() == 'Darwin':  # MAC
         root = '/Volumes/Macintosh HD/Users/karmel/Desktop/Training/Humpback/dirty'
     elif platform.system() == 'Windows':
