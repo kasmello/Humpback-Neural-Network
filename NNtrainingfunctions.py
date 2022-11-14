@@ -229,7 +229,7 @@ def validate_model(DATA, net, patience, prev_score):
     print(result_dict)
     if wandb.run:
         wandb.log(result_dict)
-    if f1 - prev_score < 0.004:
+    if f1 - prev_score < 0.003:
         patience -= 1
         print(f'Patience now at {patience}')
     else:
