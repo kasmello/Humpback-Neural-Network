@@ -122,7 +122,7 @@ def train_nn(DATA, **train_options):
                 loss.backward()  # backward propagation
                 torch.nn.utils.clip_grad_norm_(net.parameters(), 1)
                 optimizer.step()
-                if lr_decay: scheduler.step()
+                if lr_decay: scheduler(None)
 
             end = time.time()
             time_taken_this_epoch += end-start
