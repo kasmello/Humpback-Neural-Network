@@ -97,12 +97,11 @@ def train_nn(DATA, **train_options):
     patience=original_patience
     prev_score = 0
     final_epoch = 0
+    if lr_decay: scheduler(None)
     for epoch in tqdm(range(epochs), position=0, leave=True):
         try:
             final_epoch = epoch
-            if lr_decay: scheduler(None)
             curr_learning_rate = optimizer.param_groups[0]["lr"]
-            print({'lr': curr_learning_rate})
             time_taken_this_epoch = 0
             start = time.time()
             for i, batch in enumerate(tqdm(DATA.all_training, position=0, leave=True)):
@@ -117,12 +116,13 @@ def train_nn(DATA, **train_options):
                 loss_number = loss.item()
                 if i % 10 == 0 and i > 0:
                     pred, actual, images = convert_output_to_prediction(output, x, y)
-                    check_training_accuracy(DATA,pred,actual,curr_learning_rate)
+                    check_training_accuracy(DATA,pred,actual)
                     if wandb.run:
-                        wandb.log({'T Loss': loss_number})
+                        wandb.log({'T Loss': loss_number, 'Learning Rate': curr_learning_rate})
                 loss.backward()  # backward propagation
                 torch.nn.utils.clip_grad_norm_(net.parameters(), 1)
                 optimizer.step()
+                if lr_decay: scheduler.step()
 
             end = time.time()
             time_taken_this_epoch += end-start
@@ -172,7 +172,7 @@ def predict(data,net, num_batches=999999999):
         return images, pred, actual, loss_number, output
         
 
-def check_training_accuracy(DATA,pred,actual,curr_learning_rate):
+def check_training_accuracy(DATA,pred,actual):
     if wandb.run:
         pred = DATA.inverse_encode(pred)
         actual = DATA.inverse_encode(actual)
@@ -181,7 +181,7 @@ def check_training_accuracy(DATA,pred,actual,curr_learning_rate):
         precision = output['weighted avg']['precision']
         recall = output['weighted avg']['recall']
         result_dict = {'T Accuracy': accuracy,
-                'T Wgt Precision': precision, 'T Wgt Recall': recall, 'Learning Rate': curr_learning_rate}
+                'T Wgt Precision': precision, 'T Wgt Recall': recall}
         wandb.log(result_dict)
 
 def test_model(DATA, net, final_epoch):
