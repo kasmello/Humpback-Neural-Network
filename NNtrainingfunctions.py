@@ -237,7 +237,7 @@ def validate_model(DATA, net, patience, prev_score):
         patience -= 1
         print(f'Patience now at {patience}')
     else:
-        prev_score = loss_number
+        prev_score = f1
     return patience, prev_score
 
 def load_from_recovery(net_name):
