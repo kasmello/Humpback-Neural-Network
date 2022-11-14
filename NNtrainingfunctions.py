@@ -88,6 +88,7 @@ def train_nn(DATA, **train_options):
         scheduler = lsr.CosineAnnealingWarmRestarts(optimizer,T_0=3,eta_min=0.000001)
     else:
         lr_decay=None
+        scheduler=None
     pathlib.Path(f'Models/{name}').mkdir(parents=True, exist_ok=True)
     
     total_time = 0
@@ -119,7 +120,7 @@ def train_nn(DATA, **train_options):
                 loss.backward()  # backward propagation
                 torch.nn.utils.clip_grad_norm_(net.parameters(), 1)
                 optimizer.step()
-            scheduler.step()
+            if lr_decay: scheduler.step()
             end = time.time()
             time_taken_this_epoch += end-start
             total_time += time_taken_this_epoch
