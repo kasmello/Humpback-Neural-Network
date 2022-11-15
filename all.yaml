@@ -4,11 +4,11 @@ method: grid
 entity: kasmello
 parameters:
   lr:
-    values: [0.000001,0.00001]
+    values: [0.00005,0.0001]
   batch_size:
     value: 16
   lr_decay:
-    values: ['cosineAN','cosineANW']
+    values: ['cosineANW']
   wd:
     value: 0.0001
   pink:
@@ -16,6 +16,6 @@ parameters:
   specgram:
     values: ['true','false']
   architecture:
-    values: ['vit-base','resnet18','efficientnet']
+    values: ['efficientnet7']
   epochs:
     value: 20

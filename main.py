@@ -73,13 +73,13 @@ if __name__ == '__main__':
 
         elif option == '2':
             #use https://arxiv.org/pdf/2106.10270.pdf as reference
-            lr=0.00001
+            lr=0.0001
             wd=0.0001
             epochs=6
             momentum=None
             name='vit-base'
             optimm='adamw'
-            lr_decay = 'cosineANW'
+            lr_decay = 'cosineAN'
             run_model(DATA,name,lr,wd,momentum,epochs, True, True, optimm, lr_decay)
 
         elif option == '3':
@@ -121,7 +121,7 @@ if __name__ == '__main__':
             momentum=0.9
             name='resnet18'
             optimm='adamw'
-            lr_decay = None
+            lr_decay = 'cosineAN'
             run_model(DATA,name,lr,wd,momentum,epochs, True, True, optimm, lr_decay)
 
         elif option == '9':
