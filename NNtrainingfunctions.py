@@ -80,10 +80,7 @@ def train_nn(DATA, **train_options):
     rest = epochs-warmup
    
     if lr_decay=='cosineAN': 
-        scheduler = create_lr_scheduler_with_warmup(lsr.CosineAnnealingLR(optimizer,T_max=rest),
-                        warmup_start_value = lr/warmup,
-                        warmup_end_value = lr,
-                        warmup_duration=warmup)
+        scheduler = lsr.CosineAnnealingLR(optimizer,T_max=epochs),
     elif lr_decay=='cosineANW':
         scheduler = lsr.CosineAnnealingWarmRestarts(optimizer,T_0=3,eta_min=0.000001)
     else:

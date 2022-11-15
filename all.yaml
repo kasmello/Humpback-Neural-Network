@@ -8,7 +8,7 @@ parameters:
   batch_size:
     value: 16
   lr_decay:
-    values: ['none','cosineANW']
+    values: ['cosineAN','cosineANW']
   wd:
     value: 0.0001
   pink:
