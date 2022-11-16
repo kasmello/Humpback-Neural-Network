@@ -322,4 +322,4 @@ def get_model_from_name(model_name,num_labels):
         return timm.create_model('efficientnet_b0',pretrained=True, num_classes=num_labels, in_chans=1).to(device)
 
     elif model_name.lower()=='efficientnet7':
-        return timm.create_model('efficientnet_b7',pretrained=True, num_classes=num_labels, in_chans=1).to(device)
+        return timm.create_model('efficientnet_b5',pretrained=True, num_classes=num_labels, in_chans=1).to(device)
