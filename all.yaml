@@ -4,17 +4,17 @@ method: grid
 entity: kasmello
 parameters:
   lr:
-    values: [0.00001,0.0001]
+    values: [0.000015]
   batch_size:
     value: 16
   lr_decay:
-    values: ['cosineAN']
+    values: ['cosineAN', 'cosineANW']
   wd:
     value: 0.0001
   pink:
-    values: ['true','false']
+    values: ['true']
   specgram:
-    values: ['true','false']
+    values: ['true']
   architecture:
     values: ['efficientnet', 'vit-base','resnet18']
   epochs:
