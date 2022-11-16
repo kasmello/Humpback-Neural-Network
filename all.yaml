@@ -16,6 +16,6 @@ parameters:
   specgram:
     values: ['true','false']
   architecture:
-    values: ['efficientnet7']
+    values: ['efficientnet5']
   epochs:
     value: 20
