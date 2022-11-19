@@ -80,7 +80,7 @@ if __name__ == '__main__':
             name='vit-base'
             optimm='adamw'
             lr_decay = 'cosineANW'
-            run_model(DATA,name,lr,wd,momentum,epochs, True, True, optimm, lr_decay, True)
+            run_model(DATA,name,lr,wd,momentum,epochs, True, True, optimm, lr_decay)
 
         elif option == '3':
             DATA.test_transform()
