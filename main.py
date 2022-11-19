@@ -69,7 +69,7 @@ if __name__ == '__main__':
             finished = True
 
         if option == '1':
-            DATA = nn_data(ROOT, batch_size=16, pink=True)
+            DATA = nn_data(ROOT, batch_size=16, pink=True, moving=False)
 
         elif option == '2':
             #use https://arxiv.org/pdf/2106.10270.pdf as reference

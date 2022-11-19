@@ -60,7 +60,7 @@ class nn_data:
             transforms.Grayscale(num_output_channels=1),
             transforms.ToTensor(),
             AddPinkNoise(p=1,power=1), 
-            TimeWarp(p=1,T=100),
+            TimeWarp(p=1,T=112),
             FreqMask(p=1, F=20),
             TimeMask(p=1, T=20),
             TranslateHorizontal(p=1,moving=100),
@@ -71,6 +71,37 @@ class nn_data:
             transforms.Grayscale(num_output_channels=1),
             transforms.ToTensor(),
         ])
+
+        self.timewarp_transform = transforms.Compose([
+            transforms.Grayscale(num_output_channels=1),
+            transforms.ToTensor(),
+            TimeWarp(p=1,T=100)
+        ])
+
+        self.freqmask_transform = transforms.Compose([
+            transforms.Grayscale(num_output_channels=1),
+            transforms.ToTensor(),
+            FreqMask(p=1, F=30)
+        ])
+
+        self.timemask_transform = transforms.Compose([
+            transforms.Grayscale(num_output_channels=1),
+            transforms.ToTensor(),
+            TimeMask(p=1, T=30, masks=20)
+        ])
+
+        self.translate_transform = transforms.Compose([
+            transforms.Grayscale(num_output_channels=1),
+            transforms.ToTensor(),
+            TranslateHorizontal(p=1,moving=100),
+        ])
+
+        self.pink_transform = transforms.Compose([
+            transforms.Grayscale(num_output_channels=1),
+            transforms.ToTensor(),
+            AddPinkNoise(p=1,power=3)
+        ])
+
         self.stratify_sample(root)
         self.grab_dataset(batch_size)
         self.save_label_dict()
@@ -120,14 +151,19 @@ class nn_data:
                 break
         for img_path in images:
             img = Image.open(img_path)
-            plt.imshow(img)
+            plt.imshow(img, cmap='gray')
+            plt.axis('off')
             plt.show()
             plt.close()
-            # stat = ImageStat.Stat(img)
-            example = self.transform_all(img)
-            plt.imshow(example[0], cmap='gray')
-            plt.show()
-            plt.close()
+            for test_transforms in [self.pink_transform,self.timewarp_transform,self.timemask_transform,
+                    self.freqmask_transform,self.translate_transform]:
+                for i in range(2):
+                    # stat = ImageStat.Stat(img)
+                    example = test_transforms(img)
+                    plt.imshow(example[0], cmap='gray')
+                    plt.axis('off')
+                    plt.show()
+                    plt.close()
 
     @staticmethod
     def make_folders(root):
