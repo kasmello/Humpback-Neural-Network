@@ -137,7 +137,7 @@ def train_nn(DATA, **train_options):
             # torch.save(net.state_dict(), file_path)
             # print(f'Keyboard Interrupt detected. Saving current file as {file_path}')
             # break
-    test_model(DATA,net, final_epoch)   
+    test_model(DATA,net, final_epoch, name)   
     wandb.finish() 
 
 
@@ -178,7 +178,7 @@ def check_training_accuracy(DATA,pred,actual):
                 'T Wgt Precision': precision, 'T Wgt Recall': recall}
         wandb.log(result_dict)
 
-def test_model(DATA, net, final_epoch):
+def test_model(DATA, net, final_epoch,name):
     images, pred, actual, loss_number, output = predict(DATA.all_testing,net)
     actual_for_roc = actual
     pred = DATA.inverse_encode(pred)
@@ -212,6 +212,7 @@ def test_model(DATA, net, final_epoch):
         plt.show(block=False)
         time.sleep(5)
         plt.close()
+    torch.save(net.state_dict(), f'Models/{name}/{name}_{final_epoch}.pth')
 
 def validate_model(DATA, net, patience, prev_score):
     images, pred, actual, loss_number, output = predict(DATA.all_validation,net)
