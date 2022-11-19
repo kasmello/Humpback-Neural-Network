@@ -69,18 +69,18 @@ if __name__ == '__main__':
             finished = True
 
         if option == '1':
-            DATA = nn_data(ROOT, batch_size=32, pink=True)
+            DATA = nn_data(ROOT, batch_size=16, pink=True)
 
         elif option == '2':
             #use https://arxiv.org/pdf/2106.10270.pdf as reference
-            lr=0.0001
+            lr=1e-06
             wd=0.0001
-            epochs=6
+            epochs=20
             momentum=None
             name='vit-base'
             optimm='adamw'
-            lr_decay = 'cosineAN'
-            run_model(DATA,name,lr,wd,momentum,epochs, True, True, optimm, lr_decay)
+            lr_decay = 'cosineANW'
+            run_model(DATA,name,lr,wd,momentum,epochs, True, True, optimm, lr_decay, True)
 
         elif option == '3':
             DATA.test_transform()
@@ -102,6 +102,8 @@ if __name__ == '__main__':
             name='net'
             optimm='adamw'
             lr_decay = None
+            pink=True
+            specgram=True
             run_model(DATA,name,lr,wd,momentum,epochs, True, optimm, lr_decay)
 
         elif option == '7':
@@ -115,13 +117,13 @@ if __name__ == '__main__':
             run_model(DATA,name,lr,wd,momentum,epochs, True, optimm, lr_decay)
 
         elif option == '8':
-            lr=0.0001
-            wd=0.03
-            epochs=10
-            momentum=0.9
+            lr=0.00005
+            wd=0.0001
+            epochs=20
+            momentum=None
             name='resnet18'
             optimm='adamw'
-            lr_decay = 'cosineAN'
+            lr_decay = None
             run_model(DATA,name,lr,wd,momentum,epochs, True, True, optimm, lr_decay)
 
         elif option == '9':

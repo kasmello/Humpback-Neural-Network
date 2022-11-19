@@ -30,7 +30,7 @@ validation_ratio = 0.1
 test_ratio = 0.1
 class nn_data:
 
-    def __init__(self, root, batch_size,pink=True, specgram=True):
+    def __init__(self, root, batch_size,pink=True, specgram=True, moving=True):
         self.all_labels = nn_data.make_folders(root)
         self.all_labels.sort()
         self.batch_size=batch_size
@@ -42,13 +42,17 @@ class nn_data:
             specgram_p = 0
         else:
             specgram_p = 0.35
+        if not moving:
+            moving_p = 0
+        else:
+            moving_p = 0.5
         self.train_transform = transforms.Compose([
             transforms.Grayscale(num_output_channels=1),
             transforms.ToTensor(),
             TimeWarp(p=specgram_p,T=80),
             FreqMask(p=specgram_p, F=10),
             TimeMask(p=specgram_p, T=10),
-            TranslateHorizontal(p=0.5,moving=60),
+            TranslateHorizontal(p=moving_p,moving=60),
             AddPinkNoise(p=pink_p,power=1)
         ])
         
