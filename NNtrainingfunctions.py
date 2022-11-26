@@ -184,7 +184,7 @@ def test_model(DATA, net, final_epoch,name):
     pred = DATA.inverse_encode(pred)
     actual = DATA.inverse_encode(actual)
     class_report = classification_report(actual, pred, output_dict=True)
-    wandb.log({"ROC" : wandb.plot.pr_curve([x.item() for x in actual_for_roc], output,labels=[*DATA.label_dict.values()])})
+    
 
     accuracy = class_report['accuracy']
     precision = class_report['weighted avg']['precision']
@@ -196,6 +196,7 @@ def test_model(DATA, net, final_epoch,name):
     print(result_dict)
     print(classification_report(actual, pred))
     if wandb.run:
+        wandb.log({"ROC" : wandb.plot.pr_curve([x.item() for x in actual_for_roc], output,labels=[*DATA.label_dict.values()])})
         wandb.run.summary['Test Results'] = result_dict
         # wandb.log(result_dict)
         idx_images = random.sample(range(0,len(images)),k=50)
@@ -208,10 +209,10 @@ def test_model(DATA, net, final_epoch,name):
         print(DATA.all_labels)
         cm = confusion_matrix(actual,pred, labels = DATA.all_labels)
         disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels = DATA.all_labels)
-        disp.plot()
-        plt.show(block=False)
-        time.sleep(5)
-        plt.close()
+        disp.plot(include_values=False)
+        plt.title('ViT Confusion Matrix')
+        plt.xticks(rotation=90)
+        plt.show()
     torch.save(net.state_dict(), f'Models/{name}/{name}_{final_epoch}.pth')
 
 def validate_model(DATA, net, patience, prev_score):

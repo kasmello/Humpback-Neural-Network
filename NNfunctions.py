@@ -8,6 +8,7 @@ import os
 import math
 import platform
 import wandb
+import gc
 from datetime import date
 from read_audio_module import extract_wav, grab_wavform
 from scipy.io import wavfile
@@ -25,7 +26,28 @@ from hbad import calculate_energy, calculate_energy_from_fft, calculate_noise_ra
 device = torch.device("cuda" if platform.system()=='Windows'
                                 else "mps")
 
-selection_stream_pair = {'t3152 Sep.txt':'/Volumes/HD/HumpbackDetect/Humpback Units/t3152 981 RPS BHP Port Hedland SNR47/WAV/20120901000001.wav'}
+switch_dictionary = {
+    'LMw': 'LM',
+    'LMh': 'LM',
+    'LMvu': 'LMu',
+    'MStatic': 'Blank',
+    'SStatic': 'Blank',
+    'N3':'N4',
+    'W': 'N6',
+    'Dw': 'N4',
+    'IG': 'lG',
+    'llG': 'lG',
+    'Dm': 'G',
+    'L': 'Dh',
+    'Hi': 'LJ',
+    'FSU': 'Fsu',
+    'FSu': 'Fsu',
+    'DvH': 'Dvh',
+    '1': 'MB',
+}
+
+selection_stream_pair = {'t3152 Sep.txt':'/Volumes/HD/HumpbackDetect/Humpback Units/t3152 981 RPS BHP Port Hedland SNR47/WAV/20120901000001.wav',
+'2845 August 13-16.txt': '/Volumes/HD/HumpbackDetect/Humpback Units/t2845Backup/WAV/20090813000001.wav'}
 
 
 def pad_out_row(row, segment_dur):
@@ -76,7 +98,7 @@ def load_all_sounds(file):
     return sounds_dir
 
 def load_model_for_training(model_path, num_labels):
-    model_name = model_path.split('/')[-1][:-3]
+    model_name = model_path.split('/')[-1][:-4]
     model = get_model_from_name(model_name,num_labels)
     model.load_state_dict(torch.load(model_path, map_location=device)) #investigate strict
     model.eval()
@@ -107,64 +129,93 @@ def get_psd_distribution_of_all_images(DATA):
         plt.show()
         plt.close()
 
-def queue_noises(sounds_for_this_file,dict_list,end,i,sample_rate):
+def queue_noises(sounds_for_this_file,dict_list,end,i):
     done = False
+    count_queued = 0
     while not done:
         done=True
         if i > len(dict_list):
             break
         if  int(dict_list[i]['Beg File Samp (samples)']) <= end:
-            done=False
-            sounds_for_this_file.appendleft(dict_list[i])
-            print(f"QUEUED: {dict_list[i]['Begin Path']} {dict_list[i]['Selection']}")
+            if dict_list[i]['Code'] not in ['Blank','',\
+                '1a','','Fu','YSh','YS','FC','FP','V','Sqh','ll']:
+                done=False
+                dict_list[i]['Code'] = switch_dictionary.get(dict_list[i]['Code'],dict_list[i]['Code'])
+                dict_list[i]['found']='notfound'
+                sounds_for_this_file.appendleft(dict_list[i])
+                count_queued += 1
+            # print(f"QUEUED: {dict_list[i]['Begin Path']} {dict_list[i]['Selection']}")
             i += 1
-    return sounds_for_this_file,i
+            
+
+    return sounds_for_this_file,i,count_queued
 
 def dequeue_noises(sounds_for_this_file,start,sample_rate):
     i = 0
+    update_list = [] #(misclassified/classified, category)
     length_of_queue = len(sounds_for_this_file)
-    while i < length_of_queue:
+    while i < len(sounds_for_this_file):
         if float(sounds_for_this_file[i]['End Time (s)'])*sample_rate <= start:
             popped = sounds_for_this_file.pop()
-            print(f"DEQUEUED: {popped['Begin Path']} {popped['Selection']}")
-            length_of_queue = len(sounds_for_this_file)
+            list_to_append = [popped['found'],popped['Code']]
+            if popped.get('reason'):
+                list_to_append.append(popped['reason'])
+            # print(f"DEQUEUED: {popped['Begin Path']} {popped['Selection']}")
+            update_list.append(list_to_append)
         else:
             i += 1
-    return sounds_for_this_file
+    
+    return sounds_for_this_file,update_list
+
+def check_if_blank_on_top_and_over_threshold(tensors,percents,threshold):
+    if tensors[0]=='Blank' and percents[0]>threshold:
+        return True
+    return False
 
 
-def process_and_predict(sound, scores, dict_list, model, index_dict, start_time):
+def process_and_predict(sound, scores, dict_list, model, index_dict, vad_threshold, percentage_threshold):
     i = 0
     update_table = []
     wav, clean_wavform, sample_rate = grab_wavform(sound)
-    vad_arr = grab_sound_detection_areas(wav, sample_rate, 0.4)
+    vad_arr = grab_sound_detection_areas(wav, sample_rate, vad_threshold)
     #heckin plot some spectrograms here pls
     len_of_track = len(wav[0])
     dur = int(2.7 * sample_rate)  # in seconds
     detection_dur = int(0.2*sample_rate)
     sounds_in_this_current_window = deque()
     detection_values = {} #key = category, #values = dict
-    for t in range(0,len_of_track - dur,detection_dur):
+    for t in tqdm(range(0,len_of_track - dur,detection_dur)):
+        reason=None
         blank = False
         start = t
-        curr_start_time = t + start_time
+        curr_start_time = t
         end = t + detection_dur
-        if vad_arr[start] == 0:
-            print('BLANK according to VAD')
+        if end >= len_of_track-dur:
+            break
+        if sum(vad_arr[start:end]) < sample_rate*0.05:
             blank = True
+            reason='blank_reason_vad'
+            tensor_percents = []
         try:
             if i < len(dict_list):
-                sounds_in_this_current_window, i = queue_noises(sounds_in_this_current_window,dict_list,end,i,sample_rate)
-                sounds_in_this_current_window = dequeue_noises(sounds_in_this_current_window,start,sample_rate)
+                sounds_in_this_current_window, i,count_queued = queue_noises(sounds_in_this_current_window,dict_list,end,i)
+                scores['table_sounds'] += count_queued
+                sounds_in_this_current_window, update_list = dequeue_noises(sounds_in_this_current_window,start,sample_rate)
+                for item in update_list:
+                    if item[0]=='found':
+                        scores['sounds_classified'][item[1]] = scores['sounds_classified'].get(item[1],0)+1
+                    elif item[0]=='blank':
+                        scores['sounds_misclassified_blank'][item[1]] = scores['sounds_misclassified_blank'].get(item[1],0)+1
+                        scores[item[2]] += 1
+                    elif item[0]=='notfound':
+                        scores['sounds_misclassified'][item[1]] = scores['sounds_misclassified'].get(item[1],0)+1
+
+
         except IndexError:
             pass
 
-        if blank and len(sounds_in_this_current_window) > 0:
-            for selection in sounds_in_this_current_window:
-                    if selection['Code'] != 'Blank':
-                        scores['sounds_misclassified_blank'][selection['Code']] = scores['sounds_misclassified_blank'].get(selection['Code'],0)+1
 
-        print(f'START SELECTION: {round(start/sample_rate,2)} END SELECTION: {round(end/sample_rate,2)}')
+        # print(f'START SELECTION: {round(start/sample_rate,2)} END SELECTION: {round(end/sample_rate,2)}')
         Z = extract_wav(wav, sample_rate,start, dur)
         Z = normalise(Z,convert=True,fix_range=False)
         Z = resize(Z, (224,224),anti_aliasing=False)
@@ -173,68 +224,83 @@ def process_and_predict(sound, scores, dict_list, model, index_dict, start_time)
         # plt.show(block=False)
         # plt.pause(0.1)
         # plt.close()
-        threshold = 0.7
         if model:
-            if blank:
-                label_tensor = ['Blank']
-            else:
+            if not blank:
                 Z = torch.tensor([[Z]],device=device, dtype=torch.float32)
                 with torch.no_grad():
                     output = F.softmax(model(Z),dim=1)
-                percents = torch.topk(output.flatten(), 3).values.cpu().numpy()
-                tensors = torch.topk(output.flatten(), 3).indices.cpu().numpy()
+                percents = torch.topk(output.flatten(), topk).values.cpu().numpy()
+                tensors = torch.topk(output.flatten(), topk).indices.cpu().numpy()
                 label_tensor = [index_dict[code] for code in tensors]
-                tensor_percents = [(tensor,percent) for tensor, percent in zip(label_tensor,percents) if percent >= threshold and tensor != 'Blank']
-                if len(tensor_percents) > 0 and len(sounds_in_this_current_window) == 0:#if false positive
-                    for tensor, percent in tensor_percents:
-                        if tensor!='Blank':
-                            scores['false_positives'][tensor] = scores['false_positives'].get(tensor,0)+1
+                
+                if tensors[0]=='Blank':
+                    tensor_percents = [(tensor,percent) for tensor, percent in zip(label_tensor,percents) if percent >= percentage_threshold and tensor != 'Blank']
+                    
+                    if len(tensor_percents) == 0:
+                        blank = True
+                        blank='blank_reason_below_thresh'
+                else:
+                    blank=True
+                    tensor_percents = []
+                    reason='blank_reason_blank'
+
+            curr_start_seconds = curr_start_time/sample_rate
+            if blank and len(sounds_in_this_current_window) > 0: #if blank
                 for selection in sounds_in_this_current_window:
-                    found = False
+                    if selection['found']=='notfound':
+                        selection['found']='blank'
+                        selection['reason']=reason
+
+            elif len(sounds_in_this_current_window) == 0 and not blank:#if no sounds in window, and model predicted something
+                for tensor, percent in tensor_percents:
+                    if not detection_values.get(tensor):
+                        scores['false_positives'][tensor] = scores['false_positives'].get(tensor,0)+1
+                
+            else:
+                for selection in sounds_in_this_current_window:
                     for tensor, percent in tensor_percents:
                         if selection['Code'] == tensor:
-                            found=True
-                            scores['sounds_classified'][selection['Code']] = scores['sounds_classified'].get(selection['Code'],0)+1
-                        continue
-                    if not found:
-                        scores['sounds_misclassified'][selection['Code']] = scores['sounds_misclassified'].get(selection['Code'],0)+1
-                print(f'Top 3: {label_tensor}, PERCENTS: {[round(percent,2) for percent in percents]}')
-            curr_start_seconds = curr_start_time/sample_rate
-            if label_tensor[0] == 'Blank' or len(tensor_percents)==0: #if predicted blank:
-                for selection in sounds_in_this_current_window:
-                    if selection['Code'] != 'Blank':
-                        scores['sounds_misclassified_blank'][selection['Code']] = scores['sounds_misclassified_blank'].get(selection['Code'],0)+1
-            else:
-                for tensor, percent in tensor_percents:
-                    if detection_values.get(tensor):
-                        dict_to_update = detection_values[tensor]
-                        dict_to_update['End Time (s)'] = curr_start_seconds+2.7
-                        dict_to_update['End File Samp (samples)'] = curr_start_time+2.7*sample_rate, #only update end times if item is already in
-                        detection_values[tensor] = dict_to_update
-                    
-                    else:
-                        pop_list = [key for key in detection_values.keys() if key != tensor]
-                        for code in pop_list:
-                            row = detection_values.pop(code)
-                            update_table.append(row)
-                        row = {
-                        'Begin Path': sound,
-                        'End File': sound.split('/')[-1],
-                        'Begin Time (s)': curr_start_seconds,
-                        'End Time (s)': curr_start_seconds+2.7,
-                        'Beg File Samp (samples)': curr_start_time,
-                        'End File Samp (samples)': curr_start_time+2.7*sample_rate,
-                        'Code': tensor
-                        }
-                        detection_values[tensor] = row
+                            selection['found']='found'
+
+            pop_list = [key for key in detection_values.keys()]
+            for tensor, percent in tensor_percents:
+                if detection_values.get(tensor):
+                    dict_to_update = detection_values[tensor]
+                    dict_to_update['End Time (s)'] = curr_start_seconds+2.7
+                    dict_to_update['End File Samp (samples)'] = curr_start_time+2.7*sample_rate, #only update end times if item is already in
+                    detection_values[tensor] = dict_to_update
+                    pop_list.remove(tensor)
                 
+                else:
+                    row = {
+                    'Begin Path': sound,
+                    'End File': sound.split('/')[-1],
+                    'Begin Time (s)': curr_start_seconds,
+                    'End Time (s)': curr_start_seconds+2.7,
+                    'Beg File Samp (samples)': curr_start_time,
+                    'End File Samp (samples)': curr_start_time+2.7*sample_rate,
+                    'Code': tensor
+                    }
+                    detection_values[tensor] = row
+            scores['items_predicted'] += len(pop_list)
+            for code in pop_list:
+                row = detection_values.pop(code)
+                update_table.append(row)
+            if end+detection_dur >= len_of_track - dur:
+                scores['items_predicted'] += len(detection_values)
+                for row in detection_values.values():
+                    update_table.append(row)
+            
+
     if model:
-        return scores, update_table, start_time+len_of_track
+        del model
+        gc.collect()
+        return scores, update_table
     else:
-        return scores, None, start_time+len_of_track
+        return scores, None
 
 
-def run_through_audio(model_path, dict_path):
+def run_through_audio(model_path, dict_path, vad_threshold, percentage_threshold,topk):
     #how many false alarms of sounds where there isnt
     #time taken (automatically done by wandb)
     #how many different sounds correctly picked up
@@ -244,6 +310,7 @@ def run_through_audio(model_path, dict_path):
     
     index_dict = {}
     model = None
+    scores=None
     if model_path:
         with open(dict_path,'r') as file:
             reader = csv.DictReader(file)
@@ -252,28 +319,50 @@ def run_through_audio(model_path, dict_path):
         model = load_model_for_training(model_path,len(index_dict)) #assigning the correct model...
         # wandb.init(project='Testing Performance',name=model_path.split('/')[-1][:-3], entity="kasmello")
         scores = {
+            'table_sounds': 0,
+            'items_predicted': 0,
+            'blank_reason_vad': 0,
+            'blank_reason_blank': 0,
+            'blank_reason_below_thresh': 0,
             'false_positives': {},
             'sounds_classified': {},
             'sounds_misclassified': {},
             'sounds_misclassified_blank': {}
         }
-        table_dict = []
     all_tables = load_all_selection_tables()
-    start_time = 0
     try:
         for table in all_tables:
             sound = load_all_sounds(table)
             dict_list = read_in_csv_times(table)
-            scores, update_table, start_time = process_and_predict(sound, scores, dict_list, model, index_dict,start_time)
-            if model_path:
-                table_dict.extend(update_table)
+            scores, table_dict = process_and_predict(sound, scores, dict_list, model, index_dict, vad_threshold, percentage_threshold)
+            if model_path and not wandb.run:
                 today = date.today()
                 save_string = f"Selection Tables/{sound.split('/')[-1][:-4]}_{today}.txt"
                 print(f'SAVING AS {save_string}')
                 save_file(table_dict,save_string)
+        number_false_positives = sum(scores['false_positives'].values())
+            #number classified correctly: correct/table
+        number_classified = sum(scores['sounds_classified'].values())
+        #number classified incorrectly: incorrect/table
+        number_misclassified = sum(scores['sounds_misclassified'].values())
+        #number items classified as blank: blanks/items in table
+        number_misclassified_blank = sum(scores['sounds_misclassified_blank'].values())
+        result_dict = {"Total Table Sounds": scores['table_sounds'], "Ratio Items Predicted": round(scores['items_predicted']/scores['table_sounds'],3),
+            "Classified": round(number_classified/scores['table_sounds'],2), "Misclassified": round(number_misclassified/scores['table_sounds'],3), 
+            "Misclassified Blank": round(number_misclassified_blank/scores['table_sounds'],3), 
+            "Number False Positives": round(number_false_positives/scores['items_predicted'],3),
+            # "Blank Reason: VAD": round(scores['blank_readon_vad']/scores['table_sounds'],2),
+            # "Blank Reason: Empty Tensor List": round(scores['blank_reason_below_thresh']/scores['table_sounds'],2),
+            # "Blank Reason: Blank Predicted": round(scores['blank_reason_blank']/scores['table_sounds'],2),
+            "VAD Threshold": round(vad_threshold,3),
+            "Percent Threshold": round(percentage_threshold,3)}
+        print(result_dict)
+        if wandb.run:
+            wandb.log(result_dict)    
     except KeyboardInterrupt:
-        print('DONE')
+        print('KEYBOARD INTERRUPT')
     print(scores)
+
 def find_file(path,search_string):
     """
     find file with specific extension
@@ -352,7 +441,7 @@ def get_model_from_name(model_name,num_labels):
     elif model_name.lower() == 'deit-small':
         return timm.create_model('deit_small_distilled_patch16_224',pretrained=True, num_classes=num_labels, in_chans=1).to(device)
 
-    elif model_name.lower()=='vit-base':
+    elif model_name.lower()[0:8]=='vit-base':
         return timm.create_model('vit_base_patch16_224',pretrained=True, num_classes=num_labels, in_chans=1).to(device)
 
     elif model_name.lower()=='vit-large':

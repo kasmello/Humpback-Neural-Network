@@ -52,7 +52,8 @@ if __name__ == '__main__':
                     \n1: Make Training and Validation Data\
                     \n2: Train and Test Vision Transformer model\
                     \n3: Test how the transform looks on example data\
-                    \n4: Go through the Entire Dataset (BETA)\
+                    \n4: Live Detection on Streamed Data (BETA)\
+                    \n\t4.5: Sweep through VAD and percentage threshold for Live Detection\
                     \n5: Calculate Energy Levels of spectogram\
                     \n6: Train and Test NN\
                     \n7: Train and Test CNN\
@@ -88,7 +89,24 @@ if __name__ == '__main__':
         elif option == '4':
             if not MODEL_PATH:
                 MODEL_PATH = load_model_and_dict()
-            run_through_audio(MODEL_PATH, LABEL_DICT_PATH)
+            vad_threshold = input('Type a decimal threshold between 0 and 1 for the activity detection threshold!\t')
+            percentage_threshold = input('Type a decimal threshold between 0 and 1 for the program to pick up sounds!\t')
+            topk = input('Type the maximum number of sounds one window can have')
+            run_through_audio(MODEL_PATH, LABEL_DICT_PATH, float(vad_threshold), float(percentage_threshold),int(topk))
+
+        elif option == '4.5':
+            if not MODEL_PATH:
+                MODEL_PATH = load_model_and_dict()
+            vad_thresholds = [0,0.5]
+            percentage_thresholds = [0,0.2,0.6]
+            topk = [1,3,8]
+            project_name = input('What do you want this project to be called?')
+            for vad_threshold in vad_thresholds:
+                for percentage_threshold in percentage_thresholds:
+                    wandb.init(project=project_name,name=
+                    f"{MODEL_PATH.split('/')[-1][:-3]}_vad={vad_threshold}_%={percentage_threshold}", entity="kasmello")
+                    run_through_audio(MODEL_PATH, LABEL_DICT_PATH, float(vad_threshold), float(percentage_threshold),int(topk))
+                    wandb.finish()
 
         elif option == '5':
 
@@ -141,7 +159,9 @@ if __name__ == '__main__':
 
         elif option == '11':
             model = load_model_for_training(MODEL_PATH, len(DATA.all_labels))
-            validate_model(DATA,model,None,True)
+            # validate_model(DATA,model,None,True)
+            name = MODEL_PATH.split('/')[-1]
+            test_model(DATA,model, 0, name)   
 
         elif option == '12':
             lr=0.0001
@@ -180,4 +200,4 @@ if __name__ == '__main__':
                 plt.close()
 
         elif option == '14':
-            run_through_audio(None, LABEL_DICT_PATH)
+            run_through_audio(None, LABEL_DICT_PATH,2)
