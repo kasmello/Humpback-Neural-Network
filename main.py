@@ -99,14 +99,15 @@ if __name__ == '__main__':
                 MODEL_PATH = load_model_and_dict()
             vad_thresholds = [0,0.5]
             percentage_thresholds = [0,0.2,0.6]
-            topk = [1,3,8]
+            topk_list = [1,3,8]
             project_name = input('What do you want this project to be called?')
             for vad_threshold in vad_thresholds:
                 for percentage_threshold in percentage_thresholds:
-                    wandb.init(project=project_name,name=
-                    f"{MODEL_PATH.split('/')[-1][:-3]}_vad={vad_threshold}_%={percentage_threshold}", entity="kasmello")
-                    run_through_audio(MODEL_PATH, LABEL_DICT_PATH, float(vad_threshold), float(percentage_threshold),int(topk))
-                    wandb.finish()
+                    for topk in topk_list:
+                        wandb.init(project=project_name,name=
+                        f"{MODEL_PATH.split('/')[-1][:-3]}_vad={vad_threshold}_%={percentage_threshold}", entity="kasmello")
+                        run_through_audio(MODEL_PATH, LABEL_DICT_PATH, float(vad_threshold), float(percentage_threshold),int(topk))
+                        wandb.finish()
 
         elif option == '5':
 

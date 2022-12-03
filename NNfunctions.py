@@ -49,6 +49,8 @@ switch_dictionary = {
 selection_stream_pair = {'t3152 Sep.txt':'/Volumes/HD/HumpbackDetect/Humpback Units/t3152 981 RPS BHP Port Hedland SNR47/WAV/20120901000001.wav',
 '2845 August 13-16.txt': '/Volumes/HD/HumpbackDetect/Humpback Units/t2845Backup/WAV/20090813000001.wav'}
 
+blank_sound_pair = {'nosound.txt': '/Volumes/HD/HumpbackDetect/Humpback Units/NOSOUND/20100502040001.wav',
+'nosound copy.txt': '/Volumes/HD/HumpbackDetect/Humpback Units/NOSOUND/20100502041500.wav'}
 
 def pad_out_row(row, segment_dur):
     dur = float(row['End Time (s)'])-float(row['Begin Time (s)'])
@@ -173,7 +175,7 @@ def check_if_blank_on_top_and_over_threshold(tensors,percents,threshold):
     return False
 
 
-def process_and_predict(sound, scores, dict_list, model, index_dict, vad_threshold, percentage_threshold):
+def process_and_predict(sound, scores, dict_list, model, index_dict, vad_threshold, percentage_threshold,topk):
     i = 0
     update_table = []
     wav, clean_wavform, sample_rate = grab_wavform(sound)
@@ -233,7 +235,7 @@ def process_and_predict(sound, scores, dict_list, model, index_dict, vad_thresho
                 tensors = torch.topk(output.flatten(), topk).indices.cpu().numpy()
                 label_tensor = [index_dict[code] for code in tensors]
                 
-                if tensors[0]=='Blank':
+                if tensors[0]!='Blank':
                     tensor_percents = [(tensor,percent) for tensor, percent in zip(label_tensor,percents) if percent >= percentage_threshold and tensor != 'Blank']
                     
                     if len(tensor_percents) == 0:
@@ -334,7 +336,7 @@ def run_through_audio(model_path, dict_path, vad_threshold, percentage_threshold
         for table in all_tables:
             sound = load_all_sounds(table)
             dict_list = read_in_csv_times(table)
-            scores, table_dict = process_and_predict(sound, scores, dict_list, model, index_dict, vad_threshold, percentage_threshold)
+            scores, table_dict = process_and_predict(sound, scores, dict_list, model, index_dict, vad_threshold, percentage_threshold,topk)
             if model_path and not wandb.run:
                 today = date.today()
                 save_string = f"Selection Tables/{sound.split('/')[-1][:-4]}_{today}.txt"
@@ -347,15 +349,30 @@ def run_through_audio(model_path, dict_path, vad_threshold, percentage_threshold
         number_misclassified = sum(scores['sounds_misclassified'].values())
         #number items classified as blank: blanks/items in table
         number_misclassified_blank = sum(scores['sounds_misclassified_blank'].values())
-        result_dict = {"Total Table Sounds": scores['table_sounds'], "Ratio Items Predicted": round(scores['items_predicted']/scores['table_sounds'],3),
-            "Classified": round(number_classified/scores['table_sounds'],2), "Misclassified": round(number_misclassified/scores['table_sounds'],3), 
-            "Misclassified Blank": round(number_misclassified_blank/scores['table_sounds'],3), 
-            "Number False Positives": round(number_false_positives/scores['items_predicted'],3),
-            # "Blank Reason: VAD": round(scores['blank_readon_vad']/scores['table_sounds'],2),
-            # "Blank Reason: Empty Tensor List": round(scores['blank_reason_below_thresh']/scores['table_sounds'],2),
-            # "Blank Reason: Blank Predicted": round(scores['blank_reason_blank']/scores['table_sounds'],2),
+        try:
+            ratio_items_predicted = round(scores['items_predicted']/scores['table_sounds'],3)
+            classified = round(number_classified/scores['table_sounds'],3)
+            misclassified = round(number_misclassified/scores['table_sounds'],3)
+            misclassified_blank = round(number_misclassified_blank/scores['table_sounds'],3)
+        except ZeroDivisionError:
+            ratio_items_predicted = '∞'
+            classified = '∞'
+            misclassified = '∞'
+            misclassified_blank = '∞'
+            
+        try:
+            number_false_positives=round(number_false_positives/scores['items_predicted'],3)
+        except ZeroDivisionError:
+            number_false_positives = '∞'
+
+        result_dict = {"Total Table Sounds": scores['table_sounds'], "Ratio Items Predicted": ratio_items_predicted,
+            "Classified": classified, 
+            "Misclassified": misclassified, 
+            "Misclassified Blank": misclassified_blank,
+            "Number False Positives": number_false_positives,
             "VAD Threshold": round(vad_threshold,3),
-            "Percent Threshold": round(percentage_threshold,3)}
+            "Percent Threshold": round(percentage_threshold,3),
+            "Max Items": topk}
         print(result_dict)
         if wandb.run:
             wandb.log(result_dict)    

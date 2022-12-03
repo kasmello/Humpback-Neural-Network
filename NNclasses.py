@@ -152,7 +152,9 @@ class nn_data:
         for img_path in images:
             img = Image.open(img_path)
             plt.imshow(img, cmap='gray')
-            plt.axis('off')
+            plt.xlabel('Time (s)')
+            plt.ylabel('Freq. (Hz)')
+            plt.xticks([1,10,100])
             plt.show()
             plt.close()
             for test_transforms in [self.pink_transform,self.timewarp_transform,self.timemask_transform,
@@ -161,7 +163,8 @@ class nn_data:
                     # stat = ImageStat.Stat(img)
                     example = test_transforms(img)
                     plt.imshow(example[0], cmap='gray')
-                    plt.axis('off')
+                    plt.xlabel('Time (s)')
+                    plt.ylabel('Freq. (Hz)')
                     plt.show()
                     plt.close()
 
